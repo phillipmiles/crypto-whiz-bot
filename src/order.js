@@ -3,7 +3,14 @@ const api = require('./api');
 function calcBreakeven(side, price, volume, fee) {
   const value = price * volume;
   const cost = value * fee * 2;
+
   return side === 'buy' ? (value + cost) / volume : (value - cost) / volume;
+}
+
+async function calcSellPrice(side, fillPrice, size, requiredProfitPercentage, fees) {
+  const breakeven = calcBreakeven(side, fillPrice, size, fees);
+  const requiredProfit = breakeven * (requiredProfitPercentage / 100);
+  return side === 'buy' ? breakeven + requiredProfit : breakeven - requiredProfit;
 }
 
 function calcStoplossTriggerPrice(fillPrice, side, deviationPercentage) {
@@ -50,4 +57,4 @@ async function cancelAllTradeOrders(trade) {
   }
 }
 
-module.exports = { calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders }
+module.exports = { calcSellPrice, calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders }

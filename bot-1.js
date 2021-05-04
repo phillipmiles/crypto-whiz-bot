@@ -1,12 +1,13 @@
 require('dotenv').config()
 const api = require('./src/api');
 const { secondsTo } = require('./src/utils/time');
-const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders } = require('./src/order');
+const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders, calcSellPrice } = require('./src/order');
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
 const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
 const marketId = 'DOGE-PERP';
 const subaccount = 'BOT-1';
+
 
 let trade = {};
 
@@ -37,6 +38,9 @@ let trade = {};
 // XXXXXXX
 // XXXXXXX
 // Typescript
+// XXXXXXX
+// Use CRON to restart server after crash and do any cleanup before switching off for me
+// to later bug fix.
 // XXXXXXX
 
 
@@ -104,68 +108,82 @@ async function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
   return openStoplossOrder.status === 'triggered';
 }
 
-async function startNewTrade() {
-  // const emaCross = await hasEMACrossedInMarket(marketId, secondsTo(15, 'minutes'));
-  // console.log('cross?', emaCross);
-  // XXX Put back in checking for EMA crosses.
-  const emaCross = "long";
+async function findTradeOpportunity(subaccount) {
+  const marketIds = config[subaccount].markets;
+  for (const marketId of marketIds) {
+    console.log(`Checking market ${marketId}`)
 
-  if (emaCross) {
-    const openOrders = await api.getOpenOrders(subaccount);
+    const emaCross = await hasEMACrossedInMarket(marketId, secondsTo(15, 'minutes'));
+    // const emaCross = "long";
 
-    if (openOrders.length === 0) {
+    if (emaCross) {
+      console.log(`Found EMA cross '${emaCross}' in market ${marketId}.`);
       const marketData = await api.getMarket(marketId);
 
+      // Can't short a spot market.
       if (emaCross === 'short' && marketData.type === 'spot') {
         return;
       }
 
-      const accountData = await api.getAccount(subaccount);
-      const balances = await api.getBalances(subaccount);
-      const usdBalance = balances.find(balance => balance.coin === marketData.quoteCurrency);
-
-      const price = marketData.price;
-      let volume;
-
-      if (marketData.type === 'spot') {
-        if (!usdBalance) {
-          throw new Error('Missing USD balance when attempting to open a trade.');
-        }
-        volume = Math.floor(usdBalance.free / price);
-      } else if (marketData.type === 'future') {
-        volume = Math.floor(accountData.freeCollateral / price);
-      }
-      const order = await api.placeOrder(subaccount, {
-        "market": marketId,
-        "side": emaCross === 'long' ? 'buy' : 'sell',
-        "price": price,
-        "type": "limit",
-        "size": volume,
-        "reduceOnly": false,
-        "ioc": false,
-        "postOnly": false,
-        "clientId": null
-      })
-        .catch(error => {
-          error.message = `Error placing order. ${error.message}`;
-          throw error;
-        })
-
-      console.log(`New ${emaCross === 'long' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
-      console.log(`Bid size set for ${volume} at \$${price}.`);
-
       return {
-        orderId: order.id,
-        status: 'pending',
-        positionType: emaCross === 'long' ? 'long' : 'short',
-        side: emaCross === 'long' ? 'buy' : 'sell',
-        timeOfOrder: new Date().getTime(),
-        coin: marketData.baseCurrency,
-        currency: marketData.quoteCurrency,
-        subaccount: subaccount,
         marketId: marketId,
-        marketType: marketData.type,
+        side: emaCross === 'long' ? 'buy' : 'sell',
+        price: marketData.price,
       }
+    }
+  }
+}
+
+async function startNewTrade(subaccount, marketId, side, price) {
+  const openOrders = await api.getOpenOrders(subaccount);
+
+  if (openOrders.length === 0) {
+    const marketData = await api.getMarket(marketId);
+
+    const accountData = await api.getAccount(subaccount);
+    const balances = await api.getBalances(subaccount);
+    const usdBalance = balances.find(balance => balance.coin === marketData.quoteCurrency);
+
+    let volume;
+
+    if (marketData.type === 'spot') {
+      if (!usdBalance) {
+        throw new Error('Missing USD balance when attempting to open a trade.');
+      }
+      volume = Math.floor(usdBalance.free / price);
+    } else if (marketData.type === 'future') {
+      volume = Math.floor(accountData.freeCollateral / price);
+    }
+    const order = await api.placeOrder(subaccount, {
+      "market": marketId,
+      "side": side,
+      "price": price,
+      "type": "limit",
+      "size": volume,
+      "reduceOnly": false,
+      "ioc": false,
+      "postOnly": false,
+      "clientId": null
+    })
+      .catch(error => {
+        error.message = `Error placing order. ${error.message}`;
+        throw error;
+      })
+
+    console.log(`New ${side === 'buy' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
+    console.log(`Bid size set for ${volume} at \$${price}.`);
+
+    return {
+      orderId: order.id,
+      status: 'pending',
+      positionType: side === 'buy' ? 'long' : 'short',
+      side: side,
+      timeOfOrder: new Date().getTime(),
+      coin: marketData.baseCurrency,
+      currency: marketData.quoteCurrency,
+      subaccount: subaccount,
+      marketId: marketId,
+      marketType: marketData.type,
     }
   }
 }
@@ -175,7 +193,11 @@ async function runInterval() {
   console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
 
   if (!trade.status) {
-    trade = await startNewTrade().catch(error => { throw error });
+    const tradeOpportunity = await findTradeOpportunity(subaccount);
+    if (tradeOpportunity) {
+      console.log(tradeOpportunity);
+      trade = await startNewTrade(subaccount, tradeOpportunity.marketId, tradeOpportunity.side, tradeOpportunity.price).catch(error => { throw error });
+    }
   } else if (trade.status === 'pending') {
     const fillOrder = await api.getOrderStatus(subaccount, trade.orderId);
     // Check to see if trade has been filled.
@@ -236,26 +258,20 @@ async function runInterval() {
     }
   } else if (trade.status === 'filled') {
     const openOrder = await api.getOrderStatus(subaccount, trade.orderId)
-    // try {
     const openStoplossOrder = await getTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
-    // } catch(err) {
-
-    // }
 
     // Check if its hit stop loss
     if (openStoplossOrder.status === 'open') {
       const historicalPrices = await api.getHistoricalPrices(trade.marketId, secondsTo(15, 'minutes'));
+      // XXXX!!!!! if(hasNewCandleStarted) {}
       if (trade.timeOfOrder < new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
         console.log('Looking for profit');
         const marketData = await api.getMarket(trade.marketId);
-        const takeProfitPercentage = openOrder.avgFillPrice * (0.2 / 100);
-
         const accountData = await api.getAccount(subaccount);
 
-        const breakeven = calcBreakeven(trade.side, trade.avgFillPrice, trade.size, accountData.takerFee);
+        const sellPrice = calcSellPrice(trade.side, trade.avgFillPrice, trade.size, config[subaccount].profitDeviation, accountData.takerFee);
 
-        console.log(marketData.price, breakeven + takeProfitPercentage)
-        if (marketData.price > breakeven + takeProfitPercentage) {
+        if (trade.side === 'buy' ? marketData.price > sellPrice : marketData.price < sellPrice) {
           console.log('TAKING PROFIT');
           const order = await api.placeOrder(subaccount, {
             market: trade.marketId,
