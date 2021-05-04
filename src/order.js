@@ -1,3 +1,5 @@
+const api = require('./api');
+
 function calcBreakeven(side, price, volume, fee) {
   const value = price * volume;
   const cost = value * fee * 2;
