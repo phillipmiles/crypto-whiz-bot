@@ -93,9 +93,10 @@ async function hasEMACrossed(marketId, timeframe) {
   return;
 }
 
-async function findStoplossOrder(subaccount, marketId, stoplossOrderId) {
+// If can't find stoploss order. Returns undefined.
+async function findOpenTriggerOrder(subaccount, marketId, orderId) {
   const openTriggerOrders = await api.getOpenTriggerOrders(subaccount, marketId);
-  return openTriggerOrders.find(order => order.id === stoplossOrderId);
+  return openTriggerOrders.find(order => order.id === orderId);
 }
 
 // Cancel orders left on a trade.
@@ -247,11 +248,6 @@ async function runInterval() {
         trade.stoplossOrderId = stoplossOrder.id;
         trade.avgFillPrice = fillOrder.avgFillPrice;
         trade.size = fillOrder.size;
-
-        // const account = await api.getAccount(subaccount);
-        // const balances = await api.getBalances(subaccount);
-        // const coinBalance = balances.find(coin => coin.coin === trade.coin);
-        // console.log(balances, coinBalance);
       }
     } else if (fillOrder.status === 'open') {
       // Cancel open order if market moves away from the buy order too much.
@@ -264,13 +260,13 @@ async function runInterval() {
   } else if (trade.status === 'filled') {
     const openOrder = await api.getOrderStatus(subaccount, trade.orderId)
     // try {
-    const openStoplossOrder = await findStoplossOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openStoplossOrder = await findOpenTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
     // } catch(err) {
 
     // }
 
     // Check if its hit stop loss
-    if (openStoplossOrder.id) {
+    if (openStoplossOrder) {
       const historicalPrices = await api.getHistoricalPrices(trade.marketId, secondsTo(15, 'minutes'));
       console.log("HP", trade.timeOfOrder, new Date(openStoplossOrder.createdAt).getTime(), historicalPrices[historicalPrices.length - 2]);
       if (trade.timeOfOrder < new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
@@ -313,7 +309,7 @@ async function runInterval() {
   } else if (trade.status === 'closing') {
     const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId)
     const closeOrder = orderHistory.find(order => order.id === trade.closeOrderId);
-    const openStoplossOrder = await findStoplossOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openStoplossOrder = await findOpenTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
 
     // If close order can't be found. Then profit was taken.
     if (closeOrder && closeOrder.status === 'closed') {
