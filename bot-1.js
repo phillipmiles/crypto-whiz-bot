@@ -5,7 +5,6 @@ const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, has
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
 const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
-const marketId = 'DOGE-PERP';
 const subaccount = 'BOT-1';
 
 
@@ -202,14 +201,14 @@ async function runInterval() {
     const fillOrder = await api.getOrderStatus(subaccount, trade.orderId);
     // Check to see if trade has been filled.
     if (hasOrderSuccessfullyFilled(fillOrder)) {
-      console.log(`Trade order has been filled for market ${marketId}.`);
+      console.log(`Trade order has been filled for market ${trade.marketId}.`);
       console.log(`Filled ${fillOrder.filledSize} with average fill price of \$${fillOrder.avgFillPrice}.`);
 
       // Set stoploss
       const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config[subaccount].stoplossDeviation);
 
       const stoplossOrder = await api.placeConditionalOrder(subaccount, {
-        market: marketId,
+        market: trade.marketId,
         side: fillOrder.side === 'buy' ? 'sell' : 'buy',
         size: fillOrder.size,
         type: 'stop',
