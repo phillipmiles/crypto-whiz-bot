@@ -21,4 +21,31 @@ function hasPriceDeviatedFromBidOrder(side, bidPrice, marketPrice, allowedDeviat
   return normalisedChangeFromBidPrice > allowedDeviationPercentage;
 }
 
-module.exports = { calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled, hasPriceDeviatedFromBidOrder }
+// Cancel orders left on a trade.
+async function cancelAllTradeOrders(trade) {
+  const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId);
+  const triggerOrderHistory = await api.getTriggerOrderHistory(trade.subaccount, trade.marketId);
+
+  if (trade.orderId) {
+    const order = orderHistory.find(order => order.id === trade.orderId);
+    if (order.status === 'new' || order.status === 'open') {
+      await api.cancelOrder(order.id);
+    }
+  }
+
+  if (trade.stoplossOrderId) {
+    const order = triggerOrderHistory.find(order => order.id === trade.stoplossOrderId);
+    if (order.status === 'open') {
+      await api.cancelOpenTriggerOrder(trade.subaccount, order.id);
+    }
+  }
+
+  if (trade.closeOrderId) {
+    const order = orderHistory.find(order => order.id === trade.closeOrderId);
+    if (order.status === 'new' || order.status === 'open') {
+      await api.cancelOrder(trade.subaccount, order.id);
+    }
+  }
+}
+
+module.exports = { calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders }

@@ -1,7 +1,7 @@
 require('dotenv').config()
 const api = require('./src/api');
 const { secondsTo } = require('./src/utils/time');
-const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder } = require('./src/order');
+const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders } = require('./src/order');
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
 const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
@@ -103,34 +103,6 @@ async function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
   const stoplossOrder = await getTriggerOrder(subaccount, marketId, stoplossOrderId);
   return openStoplossOrder.status === 'triggered';
 }
-
-// Cancel orders left on a trade.
-async function cancelAllTradeOrders(trade) {
-  const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId);
-  const triggerOrderHistory = await api.getTriggerOrderHistory(trade.subaccount, trade.marketId);
-
-  if (trade.orderId) {
-    const order = orderHistory.find(order => order.id === trade.orderId);
-    if (order.status === 'new' || order.status === 'open') {
-      await api.cancelOrder(order.id);
-    }
-  }
-
-  if (trade.stoplossOrderId) {
-    const order = triggerOrderHistory.find(order => order.id === trade.stoplossOrderId);
-    if (order.status === 'open') {
-      await api.cancelOpenTriggerOrder(trade.subaccount, order.id);
-    }
-  }
-
-  if (trade.closeOrderId) {
-    const order = orderHistory.find(order => order.id === trade.closeOrderId);
-    if (order.status === 'new' || order.status === 'open') {
-      await api.cancelOrder(trade.subaccount, order.id);
-    }
-  }
-}
-
 
 async function startNewTrade() {
   // const emaCross = await hasEMACrossed(marketId, secondsTo(15, 'minutes'));
@@ -349,12 +321,26 @@ async function runBot() {
 }
 
 
+// An emergency cleanup function to attempt to cleanup any active orders.
+async function criticalErrorCleanup() {
+  await cancelAllTradeOrders(trade);
+}
+
 async function main() {
   try {
     await runBot();
   } catch (error) {
     console.error('===== CRITICAL ERROR =====')
     console.error(error)
+    console.log('Trying to cleanup.')
+    await criticalErrorCleanup().catch(error => {
+      console.log(error);
+      console.log('!!!!!!!!!!!!!!!');
+      console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
+      console.log('TRADES MIGHT STILL BE ACTIVE');
+      console.log('!!!!!!!!!!!!!!!');
+    });
+    console.log('Successfully cleaned up.')
   }
 }
 
