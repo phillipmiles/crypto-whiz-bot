@@ -7,7 +7,7 @@ const config = {
     // Percentage change that market price can move away from ther bid price before cancelling order.
     cancelBidDeviation: 0.75,
     // Percentage change from fill price that a stoploss will be set.
-    stoplossDeviation: 0.75,
+    stoplossDeviation: 1.5,
     markets: ['DOGE-PERP'],
   }
 }
