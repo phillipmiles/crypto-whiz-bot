@@ -2,6 +2,19 @@ const axios = require('axios');
 const { authenticateRestHeaders } = require('./authenticate');
 
 
+const createAxiosError = (axiosError) => {
+  const error = new Error();
+  error.code = axiosError.response.status;
+  error.odeText = axiosError.response.statusText;
+  error.request = axiosError.response.config;
+  error.response = axiosError.response.data;
+  error.message = axiosError.response.data.error;
+
+  return error;
+}
+
+
+
 // PUBLIC API CALLS
 
 async function getHistoricalPrices(marketId, timeframe) {
@@ -94,9 +107,16 @@ async function getOrderStatus(subaccount, orderId) {
 
 
 async function placeOrder(subaccount, payload) {
-  const response = await axios.post(`${process.env.API_ENDPOINT}/orders`, payload, {
-    headers: authenticateRestHeaders('/orders', 'POST', subaccount, payload)
-  });
+  // console.log('do')
+  let response;
+  try {
+    response = await axios.post(`${process.env.API_ENDPOINT}/orders`, payload, {
+      headers: authenticateRestHeaders('/orders', 'POST', subaccount, payload)
+    });
+  } catch (error) {
+    throw createAxiosError(error);
+  }
+
 
   return response.data.result;
 }

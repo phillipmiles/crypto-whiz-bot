@@ -1,11 +1,5 @@
 const { createHmac } = require('crypto');
-
-const credentials = {
-  'BOT#1': {
-    key: process.env.BOT_1_API_KEY,
-    secret: process.env.BOT_1_API_SECRET
-  }
-}
+const config = require('./config');
 
 const authenticateRestHeaders = (pathURL, method, subaccount, payload) => {
 
@@ -17,10 +11,10 @@ const authenticateRestHeaders = (pathURL, method, subaccount, payload) => {
   const payloadString = payload ? JSON.stringify(payload) : '';
   const sign = `${timestamp}${method}/api${pathURL}${payloadString}`;
 
-  const hmac = createHmac('sha256', credentials[subaccount].secret).update(sign).digest("hex");
+  const hmac = createHmac('sha256', config[subaccount].credentials.secret).update(sign).digest("hex");
 
   return {
-    'FTX-KEY': credentials[subaccount].key,
+    'FTX-KEY': config[subaccount].credentials.key,
     'FTX-TS': timestamp,
     'FTX-SIGN': hmac,
     'FTX-SUBACCOUNT': subaccount,

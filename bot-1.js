@@ -1,16 +1,16 @@
 require('dotenv').config()
 const api = require('./src/api');
-const { secondsTo } = require('./src/util/time');
-const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice } = require('./src/order');
+const { secondsTo } = require('./src/utils/time');
+const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromOpenOrder } = require('./src/order');
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
-// const marketId = 'DOGE/USD';
+const { percentageChange } = require('./src/utils/math');
+const config = require('./src/config');
 const marketId = 'DOGE-PERP';
 const subaccount = 'BOT-1';
 
 let trade = {};
 
 // TODO
-// - Git
 // - Firebase trade saving
 // XXXX
 // ON MA 100/200 thats on a downward trend - immediantly take profit
@@ -158,6 +158,7 @@ async function startNewTrade() {
 
       const price = marketData.price;
       let volume;
+
       if (marketData.type === 'spot') {
         if (!usdBalance) {
           throw new Error('Missing USD balance when attempting to open a trade.');
@@ -168,14 +169,15 @@ async function startNewTrade() {
       }
 
 
-
+      console.log(accountData.freeCollateral);
       console.log('Order price', price)
       console.log('Order volume', volume)
 
 
+      // let order;
       // try {
       const order = await api.placeOrder(subaccount, {
-        "market": 'marketId',
+        "market": marketId,
         "side": emaCross === 'long' ? 'buy' : 'sell',
         "price": price,
         "type": "limit",
@@ -184,18 +186,23 @@ async function startNewTrade() {
         "ioc": false,
         "postOnly": false,
         "clientId": null
-      }).catch(error => {
-        console.log(error.message);
       })
-      // } catch (err) {
-      //   console.log('ERROR', err.message);
+        .catch(error => {
+          error.message = `Error placing order. ${error.message}`;
+          throw error;
+        })
+      // } catch (error) {
+      //   error.message = `Error placing order. ${error.message}`;
+      //   throw error;
       // }
+
+
 
       return {
         orderId: order.id,
         status: 'pending',
         positionType: emaCross === 'long' ? 'long' : 'short',
-        breakeven: breakeven,
+        side: emaCross === 'long' ? 'buy' : 'sell',
         timeOfOrder: new Date().getTime(),
         coin: marketData.baseCurrency,
         currency: marketData.quoteCurrency,
@@ -212,19 +219,17 @@ async function runInterval() {
   console.log('=== interval ===');
 
   if (!trade.status) {
-    try {
-      trade = await startNewTrade();
-    } catch (error) {
-      console.log('Error found in starting a new trade.');
-      console.log(error);
-    }
+    trade = await startNewTrade().catch(error => { throw error });
+    console.log('HERE', trade);
+
+
   } else if (trade.status === 'pending') {
     const fillOrder = await api.getOrderStatus(subaccount, trade.orderId);
     // Check to see if trade has been filled.
     if (hasOrderSuccessfullyFilled(fillOrder)) {
       console.log("SETTING STOP LOSS")
       // Set stoploss
-      const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, 0.75);
+      const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config[subaccount].stoplossDeviation);
 
       const stoplossOrder = await api.placeConditionalOrder(subaccount, {
         market: marketId,
@@ -246,7 +251,7 @@ async function runInterval() {
           side: trade.positionType === 'long' ? 'sell' : 'buy',
           price: null,
           type: "market",
-          size: openOrder.size,
+          size: fillOrder.size,
           reduceOnly: trade.marketType === 'future' ? true : false,
           ioc: false,
           postOnly: false,
@@ -261,6 +266,8 @@ async function runInterval() {
 
         trade.status = 'filled';
         trade.stoplossOrderId = stoplossOrder.id;
+        trade.avgFillPrice = fillOrder.avgFillPrice;
+        trade.size = fillOrder.size;
 
         // const account = await api.getAccount(subaccount);
         // const balances = await api.getBalances(subaccount);
@@ -268,14 +275,14 @@ async function runInterval() {
         // console.log(balances, coinBalance);
       }
     } else if (fillOrder.status === 'open') {
-      const marketData = await api.getMarket(marketId);
-      const cancelOrderPriceDeviation = fillOrder.price * (0.75 / 100);
       // Cancel open order if market moves away from the buy order too much.
-      if (fillOrder.side === 'buy' && fillOrder.price + cancelOrderPriceDeviation < marketData.price) {
+      const marketData = await api.getMarket(trade.marketId);
+
+      if (hasPriceDeviatedFromBidOrder(fillOrder.side, fillOrder.price, marketData.price, allowedDeviationPercentage, config[subaccount].cancelBidDeviation)) {
         await api.cancelOrder(fillOrder.id);
       }
     }
-  } else if (trade.status === 'closed') {
+  } else if (trade.status === 'filled') {
     const openOrder = await api.getOrderStatus(subaccount, trade.orderId)
     // try {
     const openStoplossOrder = await findStoplossOrder(subaccount, trade.marketId, trade.stoplossOrderId)
@@ -291,8 +298,13 @@ async function runInterval() {
         console.log('Looking for profit');
         const marketData = await api.getMarket(trade.marketId);
         const takeProfitPercentage = openOrder.avgFillPrice * (0.2 / 100);
-        console.log(marketData.price, trade.breakeven + takeProfitPercentage)
-        if (marketData.price > trade.breakeven + takeProfitPercentage) {
+
+        const accountData = await api.getAccount(subaccount);
+
+        const breakeven = calcBreakeven(trade.side, trade.avgFillPrice, trade.size, accountData.takerFee);
+
+        console.log(marketData.price, breakeven + takeProfitPercentage)
+        if (marketData.price > breakeven + takeProfitPercentage) {
           console.log('TAKING PROFIT');
           const order = await api.placeOrder(subaccount, {
             market: trade.marketId,
@@ -341,11 +353,30 @@ async function runInterval() {
       trade = {};
     }
   }
+  console.log(`Trade status: ${trade.status}`);
 }
 
 async function runBot() {
-  runInterval();
-  setInterval(runInterval, 15000)
+  await runInterval().catch(error => {
+    throw error;
+  });
+
+  const pollingInterval = setInterval(async function () {
+    await runInterval().catch(error => {
+      clearInterval(pollingInterval);
+      throw error;
+    })
+  }, 15000);
 }
 
-runBot();
+
+async function main() {
+  try {
+    await runBot();
+  } catch (error) {
+    console.error('===== CRITICAL ERROR =====')
+    console.error(error)
+  }
+}
+
+main();

@@ -4,8 +4,8 @@ function calcBreakeven(side, price, volume, fee) {
   return side === 'buy' ? (value + cost) / volume : (value - cost) / volume;
 }
 
-function calcStoplossTriggerPrice(fillPrice, side, percentageDeviation) {
-  const stoplossPercentage = fillPrice * (percentageDeviation / 100);
+function calcStoplossTriggerPrice(fillPrice, side, deviationPercentage) {
+  const stoplossPercentage = fillPrice * (deviationPercentage / 100);
   return side === 'buy' ? fillPrice - stoplossPercentage : fillPrice + stoplossPercentage;
 }
 
@@ -14,4 +14,11 @@ function hasOrderSuccessfullyFilled(order) {
   return order.status === 'closed' && order.remainingSize === 0;
 }
 
-module.exports = { calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled }
+function hasPriceDeviatedFromBidOrder(side, bidPrice, marketPrice, allowedDeviationPercentage) {
+  const percentageChangeFromBidPrice = percentageChange(bidPrice, marketPrice);
+  // If shorting, inverse percentage change to make comparison easier.
+  const normalisedChangeFromBidPrice = side === 'buy' ? percentageChangeFromBidPrice : percentageChangeFromBidPrice * -1;
+  return normalisedChangeFromBidPrice > allowedDeviationPercentage;
+}
+
+module.exports = { calcBreakeven, calcStoplossTriggerPrice, hasOrderSuccessfullyFilled, hasPriceDeviatedFromBidOrder }
