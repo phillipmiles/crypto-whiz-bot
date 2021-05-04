@@ -7,7 +7,7 @@ const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
 const subaccount = 'BOT-1';
 
-
+let processingInterval = false;
 let trade = {};
 
 // TODO
@@ -37,11 +37,6 @@ let trade = {};
 // XXXXXXX
 // Use CRON to restart server after crash and do any cleanup before switching off for me
 // to later bug fix.
-// XXXXXXX
-// !!!!!!!!!!!!!!!!!!!!!!!!
-// Need to make it so that a new server poll doesn't happen if program is still searching market
-// from previous poll.
-// !!!!!!!!!!!!!!!!!!!!!!!!
 // XXXXXXX
 
 
@@ -192,6 +187,14 @@ async function startNewTrade(subaccount, marketId, side, price) {
 async function runInterval() {
   console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
 
+  // If still processing from last interval then don't process this interval.
+  if (processingInterval) {
+    console.log('Skipping interval');
+    return;
+  }
+  processingInterval = true;
+
+
   if (!trade.status) {
     const tradeOpportunity = await findTradeOpportunity(subaccount);
     if (tradeOpportunity) {
@@ -321,6 +324,7 @@ async function runInterval() {
     trade = {};
   }
   console.log(`Trade status: ${trade.status}`);
+  processingInterval = false;
 }
 
 async function runBot() {
