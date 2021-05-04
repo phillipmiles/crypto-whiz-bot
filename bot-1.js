@@ -94,9 +94,14 @@ async function hasEMACrossed(marketId, timeframe) {
 }
 
 // If can't find stoploss order. Returns undefined.
-async function findOpenTriggerOrder(subaccount, marketId, orderId) {
-  const openTriggerOrders = await api.getOpenTriggerOrders(subaccount, marketId);
-  return openTriggerOrders.find(order => order.id === orderId);
+async function getTriggerOrder(subaccount, marketId, orderId) {
+  const triggerOrders = await api.getTriggerOrderHistory(subaccount, marketId);
+  return triggerOrders.find(order => order.id === orderId);
+}
+
+async function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
+  const stoplossOrder = await getTriggerOrder(subaccount, marketId, stoplossOrderId);
+  return openStoplossOrder.status === 'triggered';
 }
 
 // Cancel orders left on a trade.
@@ -114,14 +119,14 @@ async function cancelAllTradeOrders(trade) {
   if (trade.stoplossOrderId) {
     const order = triggerOrderHistory.find(order => order.id === trade.stoplossOrderId);
     if (order.status === 'open') {
-      await api.cancelOpenTriggerOrder(order.id);
+      await api.cancelOpenTriggerOrder(trade.subaccount, order.id);
     }
   }
 
   if (trade.closeOrderId) {
     const order = orderHistory.find(order => order.id === trade.closeOrderId);
     if (order.status === 'new' || order.status === 'open') {
-      await api.cancelOrder(order.id);
+      await api.cancelOrder(trade.subaccount, order.id);
     }
   }
 }
@@ -206,8 +211,6 @@ async function runInterval() {
       console.log(`Trade order has been filled for market ${marketId}.`);
       console.log(`Filled ${fillOrder.filledSize} with average fill price of \$${fillOrder.avgFillPrice}.`);
 
-
-      console.log("SETTING STOP LOSS")
       // Set stoploss
       const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config[subaccount].stoplossDeviation);
 
@@ -220,6 +223,8 @@ async function runInterval() {
         retryUntilFilled: true,
         triggerPrice: triggerPrice,
       })
+      console.log(`Stoploss order set at ${triggerPrice}`);
+
       // XXXX THIS EMERGENCY CHECK PROBABLY DOESN'T WORK -> IF API ERRORS OUT
       // IT'LL STILL RETURN SOMETHING THAT MIGHT RESULT IN UNEXPECTED CONCEQUENCES.
       // If can't set stop loss close trade at market value. Need to wrap above in
@@ -238,16 +243,16 @@ async function runInterval() {
           clientId: null
         });
 
+        // If can't set stop loss close trade at market value
         if (closeOrder.id) {
-          // If can't set stop loss close trade at market value
-          trade = {};
+          trade.status = "closed";
         }
       } else {
-
         trade.status = 'filled';
         trade.stoplossOrderId = stoplossOrder.id;
         trade.avgFillPrice = fillOrder.avgFillPrice;
         trade.size = fillOrder.size;
+        trade.stoplossTriggerPrice = triggerPrice;
       }
     } else if (fillOrder.status === 'open') {
       // Cancel open order if market moves away from the buy order too much.
@@ -260,15 +265,14 @@ async function runInterval() {
   } else if (trade.status === 'filled') {
     const openOrder = await api.getOrderStatus(subaccount, trade.orderId)
     // try {
-    const openStoplossOrder = await findOpenTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openStoplossOrder = await getTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
     // } catch(err) {
 
     // }
 
     // Check if its hit stop loss
-    if (openStoplossOrder) {
+    if (openStoplossOrder.status === 'open') {
       const historicalPrices = await api.getHistoricalPrices(trade.marketId, secondsTo(15, 'minutes'));
-      console.log("HP", trade.timeOfOrder, new Date(openStoplossOrder.createdAt).getTime(), historicalPrices[historicalPrices.length - 2]);
       if (trade.timeOfOrder < new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
         console.log('Looking for profit');
         const marketData = await api.getMarket(trade.marketId);
@@ -289,7 +293,7 @@ async function runInterval() {
 
             // Do a search of order histories and locate the buy order!!!!
             // XXX ARE WE MISSING THIS PARMAETER!!!?!?!?!?!
-            size: openStoplossOrder.size,
+            size: openOrder.size,
             // XXX ARE WE MISSING THIS PARMAETER!!!?!?!?!?!
 
             reduceOnly: trade.marketType === 'future' ? true : false,
@@ -303,30 +307,30 @@ async function runInterval() {
       }
     } else {
       console.log('HIT STOPLOSS');
-      // Reset trade object.
-      trade = {};
+      trade.status === 'closed';
     }
   } else if (trade.status === 'closing') {
     const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId)
     const closeOrder = orderHistory.find(order => order.id === trade.closeOrderId);
-    const openStoplossOrder = await findOpenTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openStoplossOrder = await getTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
 
     // If close order can't be found. Then profit was taken.
     if (closeOrder && closeOrder.status === 'closed') {
       console.log('PROFIT TAKEN - TRADE CLOSED');
+      trade.status = 'closed';
 
-      // Cleanup remaining trade orders.
-      await cancelAllTradeOrders(trade);
-      // Reset trade object.
-      trade = {};
+    } else if (openStoplossOrder.status !== 'open') {
       // If open stoploss isn't found then stoploss was hit.
-    } else if (!openStoplossOrder) {
       console.log('HIT STOPLOSS');
-      // Cleanup remaining trade orders.
-      await cancelAllTradeOrders(trade);
-      // Reset trade object.
-      trade = {};
+      trade.status = 'closed';
     }
+  }
+
+  // Cancel remaining trade orders and reset trade object.
+  if (trade.status === 'closed') {
+    await cancelAllTradeOrders(trade);
+    // Reset trade object.
+    trade = {};
   }
   console.log(`Trade status: ${trade.status}`);
 }
