@@ -3,7 +3,6 @@ const api = require('./src/api');
 const { secondsTo } = require('./src/utils/time');
 const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder, cancelAllTradeOrders, calcSellPrice } = require('./src/order');
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
-const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
 const subaccount = 'BOT-1';
 
@@ -78,14 +77,15 @@ async function hasEMACrossedInMarket(marketId, timeframe) {
   // const currentShortEMA = calculateEMA(historicalData.slice(0), 10);
   const currentLongEMA = calculateEMA(data, 21);
   const currentShortEMA = calculateEMA(data, 10);
-
+  console.log(currentLongEMA, currentShortEMA, currentLongEMA - currentShortEMA);
+  // console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA));
   if (Math.sign(previousLongEMA - previousShortEMA) !== Math.sign(currentLongEMA - currentShortEMA)) {
     console.log("CROSSED");
     if (Math.sign(currentLongEMA - currentShortEMA) === 1) {
-      console.log('GO LONG');
-      return 'long';
-    } else {
       console.log('GO SHORT');
+      return 'short';
+    } else {
+      console.log('GO LONG');
       return 'short';
     }
   }

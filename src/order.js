@@ -1,4 +1,5 @@
 const api = require('./api');
+const { percentageChange } = require('./utils/math');
 
 function calcBreakeven(side, price, volume, fee) {
   const value = price * volume;
