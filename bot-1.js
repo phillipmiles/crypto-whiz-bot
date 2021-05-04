@@ -77,7 +77,7 @@ async function hasEMACrossedInMarket(marketId, timeframe) {
   // const currentShortEMA = calculateEMA(historicalData.slice(0), 10);
   const currentLongEMA = calculateEMA(data, 21);
   const currentShortEMA = calculateEMA(data, 10);
-  console.log(currentLongEMA, currentShortEMA, currentLongEMA - currentShortEMA);
+  console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA), Math.floor((currentLongEMA - currentShortEMA) * 100000));
   // console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA));
   if (Math.sign(previousLongEMA - previousShortEMA) !== Math.sign(currentLongEMA - currentShortEMA)) {
     console.log("CROSSED");
@@ -273,6 +273,9 @@ async function runInterval() {
         const accountData = await api.getAccount(subaccount);
 
         const sellPrice = calcSellPrice(trade.side, trade.avgFillPrice, trade.size, config[subaccount].profitDeviation, accountData.takerFee);
+        console.log('sellPrice', trade.side, trade.avgFillPrice, trade.size, config[subaccount].profitDeviation, accountData.takerFee, sellPrice);
+        console.log(marketData.price > sellPrice, marketData.price < sellPrice);
+        // 0.7664950
 
         if (trade.side === 'buy' ? marketData.price > sellPrice : marketData.price < sellPrice) {
           console.log('TAKING PROFIT');
