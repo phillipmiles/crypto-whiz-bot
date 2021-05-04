@@ -220,7 +220,7 @@ async function runInterval() {
       trade = await startNewTrade(subaccount, tradeOpportunity.marketId, tradeOpportunity.side, tradeOpportunity.price).catch(error => { throw error });
     }
   } else if (trade.status === 'pending') {
-    const fillOrder = await api.getOrderStatus(subaccount, trade.orderId);
+    const fillOrder = await api.getOrderStatus(trade.subaccount, trade.orderId);
     // Check to see if trade has been filled.
     if (hasOrderSuccessfullyFilled(fillOrder)) {
       console.log(`Trade order has been filled for market ${trade.marketId}.`);
@@ -229,7 +229,7 @@ async function runInterval() {
       // Set stoploss
       const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config[subaccount].stoplossDeviation);
 
-      const stoplossOrder = await api.placeConditionalOrder(subaccount, {
+      const stoplossOrder = await api.placeConditionalOrder(trade.subaccount, {
         market: trade.marketId,
         side: fillOrder.side === 'buy' ? 'sell' : 'buy',
         size: fillOrder.size,
@@ -246,7 +246,7 @@ async function runInterval() {
       // try catch and react to that with this.
       if (!stoplossOrder.id) {
         console.log('Oh shit cant set stoploss');
-        const closeOrder = await api.placeOrder(subaccount, {
+        const closeOrder = await api.placeOrder(trade.subaccount, {
           market: trade.marketId,
           side: trade.positionType === 'long' ? 'sell' : 'buy',
           price: null,
@@ -278,8 +278,8 @@ async function runInterval() {
       }
     }
   } else if (trade.status === 'filled') {
-    const openOrder = await api.getOrderStatus(subaccount, trade.orderId)
-    const openStoplossOrder = await getTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openOrder = await api.getOrderStatus(trade.subaccount, trade.orderId)
+    const openStoplossOrder = await getTriggerOrder(trade.subaccount, trade.marketId, trade.stoplossOrderId)
 
     // Check if its hit stop loss
     if (openStoplossOrder.status === 'open') {
@@ -288,16 +288,16 @@ async function runInterval() {
       if (trade.timeOfOrder < new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
         console.log('Looking for profit');
         const marketData = await api.getMarket(trade.marketId);
-        const accountData = await api.getAccount(subaccount);
+        const accountData = await api.getAccount(trade.subaccount);
 
-        const sellPrice = calcSellPrice(trade.side, trade.avgFillPrice, trade.size, config[subaccount].profitDeviation, accountData.takerFee);
-        console.log('sellPrice', trade.side, trade.avgFillPrice, trade.size, config[subaccount].profitDeviation, accountData.takerFee, sellPrice);
+        const sellPrice = calcSellPrice(trade.side, trade.avgFillPrice, trade.size, config[trade.subaccount].profitDeviation, accountData.takerFee);
+        console.log('sellPrice', trade.side, trade.avgFillPrice, trade.size, config[trade.subaccount].profitDeviation, accountData.takerFee, sellPrice);
         console.log(marketData.price > sellPrice, marketData.price < sellPrice);
         // 0.7664950
 
         if (trade.side === 'buy' ? marketData.price > sellPrice : marketData.price < sellPrice) {
           console.log('TAKING PROFIT');
-          const order = await api.placeOrder(subaccount, {
+          const order = await api.placeOrder(trade.subaccount, {
             market: trade.marketId,
             side: trade.positionType === 'long' ? 'sell' : 'buy',
             price: marketData.price,
@@ -324,7 +324,7 @@ async function runInterval() {
   } else if (trade.status === 'closing') {
     const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId)
     const closeOrder = orderHistory.find(order => order.id === trade.closeOrderId);
-    const openStoplossOrder = await getTriggerOrder(subaccount, trade.marketId, trade.stoplossOrderId)
+    const openStoplossOrder = await getTriggerOrder(trade.subaccount, trade.marketId, trade.stoplossOrderId)
 
     // If close order can't be found. Then profit was taken.
     if (closeOrder && closeOrder.status === 'closed') {
