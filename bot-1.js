@@ -1,7 +1,7 @@
 require('dotenv').config()
 const api = require('./src/api');
 const { secondsTo } = require('./src/utils/time');
-const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromOpenOrder } = require('./src/order');
+const { calcBreakeven, hasOrderSuccessfullyFilled, calcStoplossTriggerPrice, hasPriceDeviatedFromBidOrder } = require('./src/order');
 const { calculateMA, recursiveEMAStep, calculateEMA, } = require('./src/metrics');
 const { percentageChange } = require('./src/utils/math');
 const config = require('./src/config');
@@ -129,32 +129,22 @@ async function cancelAllTradeOrders(trade) {
 async function startNewTrade() {
   // const emaCross = await hasEMACrossed(marketId, secondsTo(15, 'minutes'));
   // console.log('cross?', emaCross);
-
+  // XXX Put back in checking for EMA crosses.
   const emaCross = "long";
-  if (emaCross) {
-    // const openOrders = await api.getOpenOrders(subaccount);
-    // console.log(openOrders);
 
+  if (emaCross) {
     const openOrders = await api.getOpenOrders(subaccount);
 
     if (openOrders.length === 0) {
-      // await startTrade(marketId, emaCross === 'long' ? 'buy' : 'sell', price, volume, subaccount);
-
       const marketData = await api.getMarket(marketId);
-      console.log(marketData);
 
       if (emaCross === 'short' && marketData.type === 'spot') {
         return;
       }
 
-
-
       const accountData = await api.getAccount(subaccount);
-
       const balances = await api.getBalances(subaccount);
-      console.log(accountData, balances)
       const usdBalance = balances.find(balance => balance.coin === marketData.quoteCurrency);
-
 
       const price = marketData.price;
       let volume;
@@ -167,15 +157,6 @@ async function startNewTrade() {
       } else if (marketData.type === 'future') {
         volume = Math.floor(accountData.freeCollateral / price);
       }
-
-
-      console.log(accountData.freeCollateral);
-      console.log('Order price', price)
-      console.log('Order volume', volume)
-
-
-      // let order;
-      // try {
       const order = await api.placeOrder(subaccount, {
         "market": marketId,
         "side": emaCross === 'long' ? 'buy' : 'sell',
@@ -191,12 +172,9 @@ async function startNewTrade() {
           error.message = `Error placing order. ${error.message}`;
           throw error;
         })
-      // } catch (error) {
-      //   error.message = `Error placing order. ${error.message}`;
-      //   throw error;
-      // }
 
-
+      console.log(`New ${emaCross === 'long' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
+      console.log(`Bid size set for ${volume} at \$${price}.`);
 
       return {
         orderId: order.id,
@@ -216,17 +194,18 @@ async function startNewTrade() {
 
 
 async function runInterval() {
-  console.log('=== interval ===');
+  console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
 
   if (!trade.status) {
     trade = await startNewTrade().catch(error => { throw error });
-    console.log('HERE', trade);
-
-
   } else if (trade.status === 'pending') {
     const fillOrder = await api.getOrderStatus(subaccount, trade.orderId);
     // Check to see if trade has been filled.
     if (hasOrderSuccessfullyFilled(fillOrder)) {
+      console.log(`Trade order has been filled for market ${marketId}.`);
+      console.log(`Filled ${fillOrder.filledSize} with average fill price of \$${fillOrder.avgFillPrice}.`);
+
+
       console.log("SETTING STOP LOSS")
       // Set stoploss
       const triggerPrice = calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config[subaccount].stoplossDeviation);

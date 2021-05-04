@@ -3,7 +3,7 @@ const config = require('./config');
 
 const authenticateRestHeaders = (pathURL, method, subaccount, payload) => {
 
-  if (method !== 'POST' && method !== 'GET') {
+  if (method !== 'POST' && method !== 'GET' && method !== 'DELETE') {
     throw new Error('Unknown method type found in authentication signing');
   }
 
