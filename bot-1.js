@@ -37,7 +37,25 @@ let trade = {};
 // Use CRON to restart server after crash and do any cleanup before switching off for me
 // to later bug fix.
 // XXXXXXX
-
+// Consider taking profit after a certain percentage even if new candle hasn't started. 
+// Ie after 0.6%. OTherwise I tend to get 0.4%s only. 
+// XXXXXXX
+// Consider preventing getting straight back into a trade in the same market that was just sold
+// Especially if I implement take profit 0.6% automatically from above.
+// XXXXXXX
+// Consider instead of using percentage to set stoploss to instead shift it to just above/below
+// previous candle. It would have prevented the ZIL-PERP stoploss hit losing 12 cents
+// which otherwise would have been a good profit if it was left to run down. This might also be necessary
+// for markets with more volatility despite volatitly having no impact on chart movement
+// and ema predictions that the candles will move in a particular direction overall.
+// XXXXXXX
+// NEed a fallback plan for when ftx goes down for maintainence. How do I even detect
+// that it's down for maintainence.
+// -
+// MAYBE RESPONSE COMES BACK WITH AN ERROR CODE STATUS I COULD USE!!!!
+// -
+// Could store current trade data in a database so I can retreive it on a CRON server restart.
+// XXXXXX
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
@@ -256,7 +274,7 @@ async function runInterval() {
       const marketData = await api.getMarket(trade.marketId);
 
       if (hasPriceDeviatedFromBidOrder(fillOrder.side, fillOrder.price, marketData.price, config[subaccount].cancelBidDeviation)) {
-        await api.cancelOrder(fillOrder.id);
+        await api.cancelOrder(trade.subaccount, fillOrder.id);
       }
     }
   } else if (trade.status === 'filled') {
