@@ -258,7 +258,7 @@ async function runInterval() {
       // Cancel open order if market moves away from the buy order too much.
       const marketData = await api.getMarket(trade.marketId);
 
-      if (hasPriceDeviatedFromBidOrder(fillOrder.side, fillOrder.price, marketData.price, allowedDeviationPercentage, config[subaccount].cancelBidDeviation)) {
+      if (hasPriceDeviatedFromBidOrder(fillOrder.side, fillOrder.price, marketData.price, config[subaccount].cancelBidDeviation)) {
         await api.cancelOrder(fillOrder.id);
       }
     }
