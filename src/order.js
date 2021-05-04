@@ -8,7 +8,7 @@ function calcBreakeven(side, price, volume, fee) {
   return side === 'buy' ? (value + cost) / volume : (value - cost) / volume;
 }
 
-async function calcSellPrice(side, fillPrice, size, requiredProfitPercentage, fees) {
+function calcSellPrice(side, fillPrice, size, requiredProfitPercentage, fees) {
   const breakeven = calcBreakeven(side, fillPrice, size, fees);
   const requiredProfit = breakeven * (requiredProfitPercentage / 100);
   return side === 'buy' ? breakeven + requiredProfit : breakeven - requiredProfit;
