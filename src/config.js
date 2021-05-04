@@ -14,13 +14,10 @@ const config = {
   }
 }
 
-// XXXX CLOSE - SUSHI
-// XXXX - SOLANA
-// XXXX - CAKE
-// XXXX - CREAM
-// XXXX CLOSE SEREM
-// XXXX CLOSE LUNA
-// XXXX DOT
 
+// XXXX
+// STARTED TEST WITH
+// Total collateral - 9.66
+// Free collateral - 9.58
 
 module.exports = config;

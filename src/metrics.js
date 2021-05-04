@@ -1,6 +1,5 @@
 // Calculate Simple Moving Average
 function calculateMA(data) {
-  console.log(data.length);
   const total = data.reduce((total, item) => total + item.close, 0);
 
   return total / data.length;

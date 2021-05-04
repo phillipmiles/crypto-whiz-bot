@@ -20,9 +20,6 @@ let trade = {};
 // where the open price was higher then the previous candle's close price. IE Immeidantly
 // after having a read candle. This would let the bot take advantage of any green candle streaks.
 // XXXXX
-// When not in a trade. Bot should scout out other markets for any other EMA crosses to
-// capitalise on.
-// XXXXXX
 // ERROR HANDLING
 // XXXXXX
 // Calculate funding rate into PnL
@@ -41,7 +38,11 @@ let trade = {};
 // Use CRON to restart server after crash and do any cleanup before switching off for me
 // to later bug fix.
 // XXXXXXX
-
+// !!!!!!!!!!!!!!!!!!!!!!!!
+// Need to make it so that a new server poll doesn't happen if program is still searching market
+// from previous poll.
+// !!!!!!!!!!!!!!!!!!!!!!!!
+// XXXXXXX
 
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
