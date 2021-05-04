@@ -63,7 +63,7 @@ let trade = {};
 //   return recursiveHistoricalEMAStep(data.slice(data.length - observations), initMA, smoothing, 0, num);
 // }
 
-async function hasEMACrossed(marketId, timeframe) {
+async function hasEMACrossedInMarket(marketId, timeframe) {
   const historicalData = await api.getHistoricalPrices(marketId, timeframe);
   // Use marketData for more frequently updated current price.
   const marketData = await api.getMarket(marketId);
@@ -105,7 +105,7 @@ async function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
 }
 
 async function startNewTrade() {
-  // const emaCross = await hasEMACrossed(marketId, secondsTo(15, 'minutes'));
+  // const emaCross = await hasEMACrossedInMarket(marketId, secondsTo(15, 'minutes'));
   // console.log('cross?', emaCross);
   // XXX Put back in checking for EMA crosses.
   const emaCross = "long";
