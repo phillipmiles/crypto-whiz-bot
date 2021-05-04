@@ -279,7 +279,7 @@ async function runInterval() {
       }
     } else {
       console.log('HIT STOPLOSS');
-      trade.status === 'closed';
+      trade.status = 'closed';
     }
   } else if (trade.status === 'closing') {
     const orderHistory = await api.getOrderHistory(trade.subaccount, trade.marketId)
