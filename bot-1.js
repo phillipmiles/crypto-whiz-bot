@@ -104,7 +104,7 @@ async function hasEMACrossedInMarket(marketId, timeframe) {
       return 'short';
     } else {
       console.log('GO LONG');
-      return 'short';
+      return 'long';
     }
   }
   return;
