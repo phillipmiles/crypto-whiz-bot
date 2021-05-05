@@ -10,7 +10,8 @@ const config = {
     stoplossDeviation: 1.5,
     // Percentage change from breakeven price required to trigger sell order.
     profitDeviation: 0.2,
-    markets: ['DOGE-PERP', 'XRP-PERP', 'ADA-PERP', 'KNC-PERP', 'ZRX-PERP', 'GRT-PERP', 'IOTA-PERP', 'ALGO-PERP', 'BAT-PERP', 'REN-PERP', 'LRC-PERP', 'MATIC-PERP', 'ZIL-PERP', 'RSR-PERP', 'VET-PERP', 'AUDIO-PERP', 'STX-PERP', 'STORJ-PERP', 'CRV-PERP', 'LEO-PERP'],
+    markets: ['DOGE-PERP', 'XRP-PERP', 'ADA-PERP', 'KNC-PERP', 'ZRX-PERP', 'GRT-PERP', 'IOTA-PERP', 'ALGO-PERP', 'BAT-PERP', 'REN-PERP', 'LRC-PERP', 'MATIC-PERP', 'ZIL-PERP', 'RSR-PERP', 'VET-PERP', 'AUDIO-PERP', 'STX-PERP', 'STORJ-PERP', 'CRV-PERP'],
+    // Taking LEO out, bugger all market action.
   }
 }
 
