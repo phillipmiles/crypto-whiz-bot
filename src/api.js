@@ -133,11 +133,9 @@ async function placeOrder(subaccount, payload) {
 }
 
 async function placeConditionalOrder(subaccount, payload) {
-  const response = await axios.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
+  return makeApiCall(() => axios.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
     headers: authenticateRestHeaders('/conditional_orders', 'POST', subaccount, payload)
-  });
-
-  return response.data.result;
+  }));
 }
 
 async function cancelOrder(subaccount, orderId) {

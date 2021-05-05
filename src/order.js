@@ -21,7 +21,8 @@ function calcStoplossTriggerPrice(fillPrice, side, deviationPercentage) {
 
 // Order must be of type Order as recieved from FTX api.
 function hasOrderSuccessfullyFilled(order) {
-  return order.status === 'closed' && order.remainingSize === 0;
+  return order.status === 'closed' && order.size === order.filledSize;
+  // return order.status === 'closed' && order.remainingSize === 0;
 }
 
 function hasPriceDeviatedFromBidOrder(side, bidPrice, marketPrice, allowedDeviationPercentage) {
