@@ -34,10 +34,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
 const api_1 = __importDefault(require("./api"));
-const time_1 = require("./utils/time");
 const order_1 = require("./order");
 const metrics_1 = require("./metrics");
-const config_1 = __importDefault(require("./config"));
+// import bot from './bots/bot-1';
+const bots_1 = __importDefault(require("./bots/bots"));
 // TODO
 // - Firebase trade saving
 // XXXX
@@ -57,12 +57,7 @@ const config_1 = __importDefault(require("./config"));
 // Could chart bots performances against one another from Firebase. Overlay them
 // and overlay them over the respective markets as well and see if any market trends
 // make certain bots more performant then at other times.
-// XXXXXXX
-// LINITING
-// XXXXXXX
-// XXXXXXX
-// Typescript
-// XXXXXXX
+// XXXXX
 // Use CRON to restart server after crash and do any cleanup before switching off for me
 // to later bug fix.
 // XXXXXXX
@@ -89,6 +84,10 @@ const config_1 = __importDefault(require("./config"));
 // FTX is giving me the correct data now and for always. This can happen because I'm using
 // the 'any' type definintion on what's returned from apis which is fine but throws a risk
 // that the data I working with in the app might be bad.
+// XXXXXX
+// Could improve EMA check by getting the tangent line at the cross point or something.
+// Essentially find out the angle of the cross, perhaps taking in multiple data points.
+// Sharper angles might be more reliable.
 // XXXXXX
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
@@ -144,284 +143,65 @@ function hasEMACrossedInMarket(marketId, timeframe) {
         return;
     });
 }
-// If can't find stoploss order. Returns undefined.
-function getTriggerOrder(subaccount, marketId, orderId) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const triggerOrders = yield api_1.default.getTriggerOrderHistory(subaccount, marketId);
-        return triggerOrders.find((order) => order.id === orderId);
-    });
-}
-function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const stoplossOrder = yield getTriggerOrder(subaccount, marketId, stoplossOrderId);
-        return stoplossOrder && stoplossOrder.status === 'triggered';
-    });
-}
-function findTradeOpportunity(subaccount) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const marketIds = config_1.default[subaccount].markets;
-        // XXX TODO: Need to check that account has enough money to buy smallest amount
-        // of coin.
-        for (const marketId of marketIds) {
-            console.log(`Checking market ${marketId}`);
-            const emaCross = yield hasEMACrossedInMarket(marketId, time_1.secondsTo(15, 'minutes'));
-            if (emaCross) {
-                console.log(`Found EMA cross '${emaCross}' in market ${marketId}.`);
-                const marketData = yield api_1.default.getMarket(marketId);
-                // Can't short a spot market.
-                if (emaCross === 'short' && marketData.type === 'spot') {
-                    return;
-                }
-                return {
-                    marketId: marketId,
-                    side: emaCross === 'long' ? 'buy' : 'sell',
-                    price: marketData.price,
-                };
+const openTrade = (tradeOrder) => __awaiter(void 0, void 0, void 0, function* () {
+    const { marketId, side, subaccount, price } = tradeOrder;
+    const openOrders = yield api_1.default.getOpenOrders(subaccount);
+    console.log(openOrders);
+    if (openOrders.length === 0) {
+        const marketData = yield api_1.default.getMarket(marketId);
+        const accountData = yield api_1.default.getAccount(subaccount);
+        const balances = yield api_1.default.getBalances(subaccount);
+        const usdBalance = balances.find((balance) => balance.coin === marketData.quoteCurrency);
+        let volume;
+        if (marketData.type === 'spot') {
+            if (!usdBalance) {
+                throw new Error('Missing USD balance when attempting to open a trade.');
             }
+            volume = Math.floor(usdBalance.free / price);
         }
-    });
-}
-function startNewTrade(subaccount, marketId, side, price) {
-    return __awaiter(this, void 0, void 0, function* () {
-        console.log('or here');
-        const openOrders = yield api_1.default.getOpenOrders(subaccount);
-        console.log(openOrders);
-        if (openOrders.length === 0) {
-            console.log('or are we');
-            const marketData = yield api_1.default.getMarket(marketId);
-            const accountData = yield api_1.default.getAccount(subaccount);
-            const balances = yield api_1.default.getBalances(subaccount);
-            const usdBalance = balances.find((balance) => balance.coin === marketData.quoteCurrency);
-            let volume;
-            console.log('we in');
-            if (marketData.type === 'spot') {
-                if (!usdBalance) {
-                    throw new Error('Missing USD balance when attempting to open a trade.');
-                }
-                volume = Math.floor(usdBalance.free / price);
-            }
-            else if (marketData.type === 'future') {
-                volume = Math.floor(accountData.freeCollateral / price);
-            }
-            if (!volume || volume <= 1) {
-                console.log('ERROR - NOT ENOUGH MONEY FOR TRADE');
-                return;
-            }
-            const order = yield api_1.default
-                .placeOrder(subaccount, {
-                market: marketId,
-                side: side,
-                price: price,
-                type: 'limit',
-                size: volume,
-                reduceOnly: false,
-                ioc: false,
-                postOnly: false,
-                clientId: null,
-            })
-                .catch((error) => {
-                error.message = `Error placing order. ${error.message}`;
-                throw error;
-            });
-            console.log(`New ${side === 'buy' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
-            console.log(`Bid size set for ${volume} at $${price}.`);
-            // const trade = new Trade();
-            console.log('here');
-            return {
-                orderId: order.id,
-                status: 'pending',
-                positionType: side === 'buy' ? 'long' : 'short',
-                side: side,
-                timeOfOrder: new Date().getTime(),
-                coin: marketData.baseCurrency,
-                currency: marketData.quoteCurrency,
-                subaccount: subaccount,
-                marketId: marketId,
-                marketType: marketData.type,
-            };
+        else if (marketData.type === 'future') {
+            volume = Math.floor(accountData.freeCollateral / price);
         }
-    });
-}
-function runInterval(subaccount, trade) {
-    return __awaiter(this, void 0, void 0, function* () {
-        console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
-        if (!trade || !trade.status) {
-            const tradeOpportunity = yield findTradeOpportunity(subaccount);
-            if (tradeOpportunity) {
-                console.log(tradeOpportunity);
-                trade = yield startNewTrade(subaccount, tradeOpportunity.marketId, tradeOpportunity.side, tradeOpportunity.price).catch((error) => {
-                    throw error;
-                });
-                console.log(trade);
-            }
+        if (!volume || volume <= 1) {
+            console.log('ERROR - NOT ENOUGH MONEY FOR TRADE');
+            return;
         }
-        else if (trade.status === 'pending' && trade.orderId) {
-            const fillOrder = yield api_1.default.getOrderStatus(trade.subaccount, trade.orderId);
-            // XXXX  looks like hasOrderSuccessfullyFilled(fillOrder) return true after an
-            // order was cancelled due to market price deviating away from bid.
-            // placeConditionalOrder return error 'Negative trigger price'
-            // Check to see if trade has been filled.
-            console.log(fillOrder, order_1.hasOrderSuccessfullyFilled(fillOrder));
-            if (order_1.hasOrderSuccessfullyFilled(fillOrder)) {
-                console.log(`Trade order has been filled for market ${trade.marketId}.`);
-                console.log(`Filled ${fillOrder.filledSize} with average fill price of $${fillOrder.avgFillPrice}.`);
-                // Set stoploss
-                const triggerPrice = order_1.calcStoplossTriggerPrice(fillOrder.avgFillPrice, fillOrder.side, config_1.default[subaccount].stoplossDeviation);
-                const stoplossOrder = yield api_1.default.placeConditionalOrder(trade.subaccount, {
-                    market: trade.marketId,
-                    side: fillOrder.side === 'buy' ? 'sell' : 'buy',
-                    size: fillOrder.size,
-                    type: 'stop',
-                    reduceOnly: trade.marketType === 'future' ? true : false,
-                    retryUntilFilled: true,
-                    triggerPrice: triggerPrice,
-                });
-                console.log(`Stoploss order set at ${triggerPrice}`);
-                // XXXX THIS EMERGENCY CHECK PROBABLY DOESN'T WORK -> IF API ERRORS OUT
-                // IT'LL STILL RETURN SOMETHING THAT MIGHT RESULT IN UNEXPECTED CONCEQUENCES.
-                // If can't set stop loss close trade at market value. Need to wrap above in
-                // try catch and react to that with this.
-                if (!stoplossOrder.id) {
-                    console.log('Oh shit cant set stoploss');
-                    const closeOrder = yield api_1.default.placeOrder(trade.subaccount, {
-                        market: trade.marketId,
-                        side: trade.positionType === 'long' ? 'sell' : 'buy',
-                        price: null,
-                        type: 'market',
-                        size: fillOrder.size,
-                        reduceOnly: trade.marketType === 'future' ? true : false,
-                        ioc: false,
-                        postOnly: false,
-                        clientId: null,
-                    });
-                    // If can't set stop loss close trade at market value
-                    if (closeOrder.id) {
-                        trade.status = 'closed';
-                    }
-                }
-                else {
-                    trade.status = 'filled';
-                    trade.stoplossOrderId = stoplossOrder.id;
-                    trade.avgFillPrice = fillOrder.avgFillPrice;
-                    trade.size = fillOrder.size;
-                    trade.stoplossTriggerPrice = triggerPrice;
-                }
-            }
-            else if (fillOrder.status === 'open' && trade.marketId) {
-                // Cancel open order if market moves away from the buy order too much.
-                const marketData = yield api_1.default.getMarket(trade.marketId);
-                if (order_1.hasPriceDeviatedFromBidOrder(fillOrder.side, fillOrder.price, marketData.price, config_1.default[subaccount].cancelBidDeviation)) {
-                    yield api_1.default.cancelOrder(trade.subaccount, fillOrder.id);
-                }
-            }
-        }
-        else if (trade.status === 'filled') {
-            // Require typescript aborter
-            if (!trade.stoplossOrderId ||
-                !trade.orderId ||
-                !trade.timeOfOrder ||
-                !trade.avgFillPrice ||
-                !trade.size) {
-                throw new Error('Something went wrong. Missing required trade data.');
-            }
-            const openOrder = yield api_1.default.getOrderStatus(trade.subaccount, trade.orderId);
-            const openStoplossOrder = yield getTriggerOrder(trade.subaccount, trade.marketId, trade.stoplossOrderId);
-            // Check if its hit stop loss
-            if (openStoplossOrder && openStoplossOrder.status === 'open') {
-                const historicalPrices = yield api_1.default.getHistoricalPrices(trade.marketId, time_1.secondsTo(15, 'minutes'));
-                // XXXX!!!!! if(hasNewCandleStarted) {}
-                if (trade.timeOfOrder <
-                    new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
-                    console.log('Looking for profit');
-                    const marketData = yield api_1.default.getMarket(trade.marketId);
-                    const accountData = yield api_1.default.getAccount(trade.subaccount);
-                    const sellPrice = order_1.calcSellPrice(trade.side, trade.avgFillPrice, trade.size, config_1.default[trade.subaccount].profitDeviation, accountData.takerFee);
-                    console.log('sellPrice', trade.side, trade.avgFillPrice, trade.size, config_1.default[trade.subaccount].profitDeviation, accountData.takerFee, sellPrice);
-                    console.log(marketData.price > sellPrice, marketData.price < sellPrice);
-                    if (trade.side === 'buy'
-                        ? marketData.price > sellPrice
-                        : marketData.price < sellPrice) {
-                        console.log('TAKING PROFIT');
-                        const order = yield api_1.default.placeOrder(trade.subaccount, {
-                            market: trade.marketId,
-                            side: trade.positionType === 'long' ? 'sell' : 'buy',
-                            price: marketData.price,
-                            type: 'limit',
-                            // Do a search of order histories and locate the buy order!!!!
-                            // XXX ARE WE MISSING THIS PARMAETER!!!?!?!?!?!
-                            size: openOrder.size,
-                            // XXX ARE WE MISSING THIS PARMAETER!!!?!?!?!?!
-                            reduceOnly: trade.marketType === 'future' ? true : false,
-                            ioc: false,
-                            postOnly: false,
-                            clientId: null,
-                        });
-                        trade.status = 'closing';
-                        trade.closeOrderId = order.id;
-                    }
-                }
-            }
-            else {
-                console.log('HIT STOPLOSS');
-                trade.status = 'closed';
-            }
-        }
-        else if (trade.status === 'closing') {
-            if (!trade || !trade.closeOrderId || !trade.stoplossOrderId) {
-                throw new Error('Something went wrong. Missing required trade data.');
-            }
-            const orderHistory = yield api_1.default.getOrderHistory(trade.subaccount, trade.marketId);
-            const closeOrder = orderHistory.find((order) => {
-                if (trade) {
-                    return order.id === trade.closeOrderId;
-                }
-                else {
-                    return false;
-                }
-            });
-            const openStoplossOrder = yield getTriggerOrder(trade.subaccount, trade.marketId, trade.stoplossOrderId);
-            // If close order can't be found. Then profit was taken.
-            if (closeOrder && closeOrder.status === 'closed') {
-                console.log('PROFIT TAKEN - TRADE CLOSED');
-                trade.status = 'closed';
-            }
-            else if (openStoplossOrder && openStoplossOrder.status !== 'open') {
-                // If open stoploss isn't found then stoploss was hit.
-                console.log('HIT STOPLOSS');
-                trade.status = 'closed';
-            }
-        }
-        // Cancel remaining trade orders and reset trade object.
-        if (trade && trade.status === 'closed') {
-            yield order_1.cancelAllTradeOrders(trade);
-            // Reset trade object.
-            trade = undefined;
-        }
-        console.log(`Trade status: ${trade ? trade.status : 'unknown'}`);
-        return trade;
-    });
-}
-const poll = ({ fn, validate, interval, maxAttempts }) => __awaiter(void 0, void 0, void 0, function* () {
-    let attempts = 0;
-    const executePoll = (resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
-        const result = yield fn();
-        attempts++;
-        if (validate(result)) {
-            return resolve(result);
-        }
-        else if (maxAttempts && attempts === maxAttempts) {
-            return reject(new Error('Exceeded max attempts'));
-        }
-        else {
-            setTimeout(executePoll, interval, resolve, reject);
-        }
-    });
-    return new Promise(executePoll);
+        const order = yield api_1.default
+            .placeOrder(subaccount, {
+            market: marketId,
+            side: side,
+            price: price,
+            type: 'limit',
+            size: volume,
+            reduceOnly: false,
+            ioc: false,
+            postOnly: false,
+            clientId: null,
+        })
+            .catch((error) => {
+            error.message = `Error placing order. ${error.message}`;
+            throw error;
+        });
+        console.log(`New ${side === 'buy' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
+        console.log(`Bid size set for ${volume} at $${price}.`);
+        return {
+            orderId: order.id,
+            status: 'pending',
+            positionType: side === 'buy' ? 'long' : 'short',
+            side: side,
+            timeOfOrder: new Date().getTime(),
+            coin: marketData.baseCurrency,
+            currency: marketData.quoteCurrency,
+            subaccount: subaccount,
+            marketId: marketId,
+            marketType: marketData.type,
+        };
+    }
 });
-function runBot(subaccount) {
+function runBot() {
     return __awaiter(this, void 0, void 0, function* () {
         const POLL_INTERVAL = 5000;
-        let trade;
+        const openTrades = [];
         let poll = true;
         // .XXXXXX
         // const pol = async (fn, intervalBetween: number) => {
@@ -432,25 +212,75 @@ function runBot(subaccount) {
         //   return new Promise(executePol);
         // };
         while (poll) {
+            console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
             try {
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                //
                 // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
                 // // as two seperate intervals
+                //
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 // // XXXXCreate a generic waitfor interval function and move out the interval
                 // // is finished check into that.
-                trade = yield runInterval(subaccount, trade);
+                // change while loop to
+                // while !trade {
+                // interval searchMarketForTrade()
+                // }
+                // We could then transition straight into buying without waiting 5 seconds
+                // on polling interval cooldown.
+                // Instead of bots call them and think of them as subaccounts!!!!
+                // Instead of bots call them and think of them as subaccounts!!!!
+                // Instead of bots call them and think of them as subaccounts!!!!
+                // This way of editing the openTrade array seems overengineered.
+                for (const subaccount of bots_1.default) {
+                    // await bots.forEach(async (subaccount) => {
+                    const trade = openTrades.find((trade) => trade.subaccount === subaccount.name);
+                    if (trade) {
+                        const updatedTrade = yield subaccount.manage(trade);
+                        const openTradeIndex = openTrades.findIndex((item) => item.subaccount === updatedTrade.subaccount);
+                        if (updatedTrade.status === 'closed') {
+                            openTrades.splice(openTradeIndex, 1);
+                        }
+                        else {
+                            openTrades.splice(openTradeIndex, 1, updatedTrade);
+                            // trade = await runInterval(subaccount, trade);
+                        }
+                    }
+                    else {
+                        console.log('Started search');
+                        const tradeOrder = yield subaccount.search();
+                        console.log('Finished search');
+                        if (tradeOrder) {
+                            const newTrade = yield openTrade(tradeOrder);
+                            if (newTrade) {
+                                openTrades.push(newTrade);
+                            }
+                        }
+                    }
+                }
+                console.log('TimeoutStart');
                 yield new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+                console.log('TimeoutOver');
             }
             catch (error) {
                 poll = false;
-                yield criticalErrorCleanup(trade).catch((error) => {
-                    console.log(error);
-                    console.log('!!!!!!!!!!!!!!!');
-                    console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
-                    console.log('TRADES MIGHT STILL BE ACTIVE');
-                    console.log('!!!!!!!!!!!!!!!');
-                    throw new Error(error);
-                });
-                console.log('Successfully cleaned up.');
+                // await criticalErrorCleanup(trade).catch((error) => {
+                console.log(error);
+                console.log('!!!!!!!!!!!!!!!');
+                console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
+                console.log('TRADES MIGHT STILL BE ACTIVE');
+                console.log('!!!!!!!!!!!!!!!');
+                throw new Error(error);
+                // });
+                // console.log('Successfully cleaned up.');
             }
         }
         // await poll({
@@ -488,9 +318,8 @@ function criticalErrorCleanup(trade) {
 }
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
-        const subaccount = 'BOT-1';
         try {
-            yield runBot(subaccount);
+            yield runBot();
         }
         catch (error) {
             console.error('===== CRITICAL ERROR =====');

@@ -1,9 +1,16 @@
 import api from './api';
-import { Subaccount } from './config';
+// import { Subaccount } from './config';
 import { percentageChange } from './utils/math';
 import { Trade } from './Trade';
 
 export type Side = 'buy' | 'sell';
+
+export interface TradeOrder {
+  subaccount: string;
+  marketId: string;
+  side: Side;
+  price: number;
+}
 
 export interface Order {
   id: string;

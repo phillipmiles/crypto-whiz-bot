@@ -27,7 +27,7 @@ import { Order, Side } from './order';
 // }
 
 export interface Trade {
-  subaccount: Subaccount;
+  subaccount: string;
   marketId: string;
   marketType: string;
   side: Side;

@@ -1,6 +1,6 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { authenticateRestHeaders } from './authenticate';
-import { Subaccount } from './config';
+// import { Subaccount } from './config';
 import { Order, TriggerOrder } from './order';
 // interface ApiError extends Error {
 //   code: string;
@@ -91,7 +91,7 @@ interface Account {
   takerFee: number;
 }
 
-async function getAccount(subaccount: Subaccount): Promise<Account> {
+async function getAccount(subaccount: string): Promise<Account> {
   const response = await axios.get(`${process.env.API_ENDPOINT}/account`, {
     headers: authenticateRestHeaders('/account', 'GET', subaccount),
   });
@@ -104,7 +104,7 @@ interface Balance {
   free: number;
 }
 
-async function getBalances(subaccount: Subaccount): Promise<Balance[]> {
+async function getBalances(subaccount: string): Promise<Balance[]> {
   const response = await axios.get(
     `${process.env.API_ENDPOINT}/wallet/balances`,
     {
@@ -115,7 +115,7 @@ async function getBalances(subaccount: Subaccount): Promise<Balance[]> {
   return response.data.result;
 }
 
-async function getOpenOrders(subaccount: Subaccount): Promise<Order[]> {
+async function getOpenOrders(subaccount: string): Promise<Order[]> {
   const response = await axios.get(`${process.env.API_ENDPOINT}/orders`, {
     headers: authenticateRestHeaders('/orders', 'GET', subaccount),
   });
@@ -125,7 +125,7 @@ async function getOpenOrders(subaccount: Subaccount): Promise<Order[]> {
 
 // Returns all trigger orders which have a status of 'open'.
 async function getOpenTriggerOrders(
-  subaccount: Subaccount,
+  subaccount: string,
   marketId: string,
 ): Promise<TriggerOrder[]> {
   const response = await axios.get(
@@ -147,7 +147,7 @@ async function getOpenTriggerOrders(
 
 // https://docs.ftx.com/#get-order-history
 async function getOrderHistory(
-  subaccount: Subaccount,
+  subaccount: string,
   marketId: string,
 ): Promise<Order[]> {
   return makeApiCall(() =>
@@ -163,7 +163,7 @@ async function getOrderHistory(
 
 // https://docs.ftx.com/#get-trigger-order-history
 async function getTriggerOrderHistory(
-  subaccount: Subaccount,
+  subaccount: string,
   marketId: string,
 ): Promise<TriggerOrder[]> {
   return makeApiCall(() =>
@@ -181,7 +181,7 @@ async function getTriggerOrderHistory(
 }
 
 async function getOrderStatus(
-  subaccount: Subaccount,
+  subaccount: string,
   orderId: string,
 ): Promise<Order> {
   return makeApiCall(() =>
@@ -191,7 +191,7 @@ async function getOrderStatus(
   );
 }
 
-async function placeOrder(subaccount: Subaccount, payload: unknown) {
+async function placeOrder(subaccount: string, payload: unknown) {
   return makeApiCall(() =>
     axios.post(`${process.env.API_ENDPOINT}/orders`, payload, {
       headers: authenticateRestHeaders('/orders', 'POST', subaccount, payload),
@@ -210,7 +210,7 @@ async function placeOrder(subaccount: Subaccount, payload: unknown) {
   // return response.data.result;
 }
 
-async function placeConditionalOrder(subaccount: Subaccount, payload: unknown) {
+async function placeConditionalOrder(subaccount: string, payload: unknown) {
   return makeApiCall(() =>
     axios.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
       headers: authenticateRestHeaders(
@@ -223,7 +223,7 @@ async function placeConditionalOrder(subaccount: Subaccount, payload: unknown) {
   );
 }
 
-async function cancelOrder(subaccount: Subaccount, orderId: string) {
+async function cancelOrder(subaccount: string, orderId: string) {
   const response = await axios.delete(
     `${process.env.API_ENDPOINT}/orders/${orderId}`,
     {
@@ -238,7 +238,7 @@ async function cancelOrder(subaccount: Subaccount, orderId: string) {
   return response.data.result;
 }
 
-async function cancelOpenTriggerOrder(subaccount: Subaccount, orderId: string) {
+async function cancelOpenTriggerOrder(subaccount: string, orderId: string) {
   return makeApiCall(() =>
     axios.delete(`${process.env.API_ENDPOINT}/conditional_orders/${orderId}`, {
       headers: authenticateRestHeaders(

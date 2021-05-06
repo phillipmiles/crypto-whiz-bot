@@ -14,6 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.cancelAllTradeOrders = exports.hasPriceDeviatedFromBidOrder = exports.hasOrderSuccessfullyFilled = exports.calcStoplossTriggerPrice = exports.calcSellPrice = exports.calcBreakeven = void 0;
 const api_1 = __importDefault(require("./api"));
+// import { Subaccount } from './config';
 const math_1 = require("./utils/math");
 const calcBreakeven = (side, price, volume, fee) => {
     const value = price * volume;

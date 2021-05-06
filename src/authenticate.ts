@@ -7,13 +7,13 @@ interface CredentialsHeaders {
   'FTX-KEY': string;
   'FTX-TS': number;
   'FTX-SIGN': string;
-  'FTX-SUBACCOUNT': Subaccount;
+  'FTX-SUBACCOUNT': string;
 }
 
 const authenticateRestHeaders = (
   pathURL: string,
   method: HttpMethod,
-  subaccount: Subaccount,
+  subaccount: string,
   payload?: unknown,
 ): CredentialsHeaders => {
   if (method !== 'POST' && method !== 'GET' && method !== 'DELETE') {
