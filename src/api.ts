@@ -24,6 +24,13 @@ class ApiError extends Error {
   }
 }
 
+// XXXX TODO!!!!!
+// I should probably convert what's returned from FTX api calls into
+// typed interfaces in each api function below. This way I can ensure that if FTX
+// changes/depreciates properties from what's returned it won't fill my app with
+// dirt data.
+// XXXX TODO!!!!!
+
 const createAxiosError = (axiosError: AxiosError) => {
   const error = new ApiError();
 
@@ -79,7 +86,12 @@ async function getMarket(marketId: string) {
 
 // PRIVATE API CALLS
 
-async function getAccount(subaccount: Subaccount) {
+interface Account {
+  freeCollateral: number;
+  takerFee: number;
+}
+
+async function getAccount(subaccount: Subaccount): Promise<Account> {
   const response = await axios.get(`${process.env.API_ENDPOINT}/account`, {
     headers: authenticateRestHeaders('/account', 'GET', subaccount),
   });
@@ -87,7 +99,12 @@ async function getAccount(subaccount: Subaccount) {
   return response.data.result;
 }
 
-async function getBalances(subaccount: Subaccount) {
+interface Balance {
+  coin: string;
+  free: number;
+}
+
+async function getBalances(subaccount: Subaccount): Promise<Balance[]> {
   const response = await axios.get(
     `${process.env.API_ENDPOINT}/wallet/balances`,
     {

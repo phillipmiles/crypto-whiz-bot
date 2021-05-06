@@ -1,6 +1,7 @@
 import api from './api';
 import { Subaccount } from './config';
 import { percentageChange } from './utils/math';
+import { Trade } from './Trade';
 
 export type Side = 'buy' | 'sell';
 
@@ -9,6 +10,9 @@ export interface Order {
   status: string;
   size: number;
   filledSize: number;
+  avgFillPrice: number;
+  side: Side;
+  price: number;
 }
 
 export interface TriggerOrder {
@@ -16,14 +20,6 @@ export interface TriggerOrder {
   status: string;
   size: number;
   filledSize: number;
-}
-
-interface Trade {
-  subaccount: Subaccount;
-  marketId: string;
-  orderId: string;
-  closeOrderId: string;
-  stoplossOrderId: string;
 }
 
 export const calcBreakeven = (
@@ -107,7 +103,7 @@ export const cancelAllTradeOrders = async (trade: Trade): Promise<void> => {
 
   if (trade.stoplossOrderId) {
     const order = triggerOrderHistory.find(
-      (order: Order) => order.id === trade.stoplossOrderId,
+      (order) => order.id === trade.stoplossOrderId,
     );
     if (order && order.status === 'open') {
       await api.cancelOpenTriggerOrder(trade.subaccount, order.id);
@@ -115,9 +111,7 @@ export const cancelAllTradeOrders = async (trade: Trade): Promise<void> => {
   }
 
   if (trade.closeOrderId) {
-    const order = orderHistory.find(
-      (order: Order) => order.id === trade.closeOrderId,
-    );
+    const order = orderHistory.find((order) => order.id === trade.closeOrderId);
     if (order && (order.status === 'new' || order.status === 'open')) {
       await api.cancelOrder(trade.subaccount, order.id);
     }

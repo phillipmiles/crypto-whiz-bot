@@ -1,21 +1,26 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.calculateEMA = exports.recursiveEMAStep = exports.calculateMA = void 0;
 // Calculate Simple Moving Average
-function calculateMA(data) {
-    var total = data.reduce(function (total, item) { return total + item.close; }, 0);
+const calculateMA = (data) => {
+    const total = data.reduce((total, item) => total + item.close, 0);
     return total / data.length;
-}
-function recursiveEMAStep(data, previousMA, smoothing, step) {
+};
+exports.calculateMA = calculateMA;
+const recursiveEMAStep = (data, previousMA, smoothing, step) => {
     // console.log('step', step, data.length);
     if (step < data.length) {
-        var ema = (data[step].close * smoothing) + (previousMA * (1 - smoothing));
-        return recursiveEMAStep(data, ema, smoothing, step + 1);
+        const ema = data[step].close * smoothing + previousMA * (1 - smoothing);
+        return exports.recursiveEMAStep(data, ema, smoothing, step + 1);
     }
     return previousMA;
-}
+};
+exports.recursiveEMAStep = recursiveEMAStep;
 // Calculate Exponential Moving Average
-function calculateEMA(data, observations) {
+const calculateEMA = (data, observations) => {
     // Smoothing / Weighting
-    var smoothing = 2 / (observations + 1);
-    var initMA = calculateMA(data.slice(data.length - (observations * 2), data.length - observations));
-    return recursiveEMAStep(data.slice(data.length - observations), initMA, smoothing, 0);
-}
-module.exports = { calculateMA: calculateMA, recursiveEMAStep: recursiveEMAStep, calculateEMA: calculateEMA };
+    const smoothing = 2 / (observations + 1);
+    const initMA = exports.calculateMA(data.slice(data.length - observations * 2, data.length - observations));
+    return exports.recursiveEMAStep(data.slice(data.length - observations), initMA, smoothing, 0);
+};
+exports.calculateEMA = calculateEMA;

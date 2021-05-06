@@ -12,11 +12,7 @@ import {
 } from './order';
 import { calculateEMA } from './metrics';
 import config, { Subaccount } from './config';
-// const Trade = require('./src/Trade');
-const subaccount = 'BOT-1';
-
-let processingInterval = false;
-let trade = {};
+import { Trade } from './Trade';
 
 // TODO
 // - Firebase trade saving
@@ -64,6 +60,11 @@ let trade = {};
 // MAYBE RESPONSE COMES BACK WITH AN ERROR CODE STATUS I COULD USE!!!!
 // -
 // Could store current trade data in a database so I can retreive it on a CRON server restart.
+// XXXXXX
+// Manually translate what's returned from FTX into typed interfaces rather then assume
+// FTX is giving me the correct data now and for always. This can happen because I'm using
+// the 'any' type definintion on what's returned from apis which is fine but throws a risk
+// that the data I working with in the app might be bad.
 // XXXXXX
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
@@ -155,10 +156,17 @@ async function isStoplossTriggered(
     marketId,
     stoplossOrderId,
   );
-  return stoplossOrder.status === 'triggered';
+  return stoplossOrder && stoplossOrder.status === 'triggered';
 }
 
-async function findTradeOpportunity(subaccount: Subaccount) {
+interface TradeOpportunity {
+  marketId: string;
+  side: Side;
+  price: number;
+}
+async function findTradeOpportunity(
+  subaccount: Subaccount,
+): Promise<TradeOpportunity | undefined> {
   const marketIds = config[subaccount].markets;
   for (const marketId of marketIds) {
     console.log(`Checking market ${marketId}`);
@@ -192,7 +200,7 @@ async function startNewTrade(
   marketId: string,
   side: Side,
   price: number,
-) {
+): Promise<Trade | undefined> {
   const openOrders = await api.getOpenOrders(subaccount);
 
   if (openOrders.length === 0) {
@@ -236,7 +244,7 @@ async function startNewTrade(
         side === 'buy' ? 'LONG' : 'SHORT'
       } trade started for market ${marketId}.`,
     );
-    console.log(`Bid size set for ${volume} at \$${price}.`);
+    console.log(`Bid size set for ${volume} at $${price}.`);
 
     // const trade = new Trade();
 
@@ -255,7 +263,11 @@ async function startNewTrade(
   }
 }
 
-async function runInterval() {
+async function runInterval(
+  subaccount: Subaccount,
+  trade: Trade | undefined,
+  processingInterval: boolean,
+) {
   console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
 
   // If still processing from last interval then don't process this interval.
@@ -265,7 +277,7 @@ async function runInterval() {
   }
   processingInterval = true;
 
-  if (!trade.status) {
+  if (!trade || !trade.status) {
     const tradeOpportunity = await findTradeOpportunity(subaccount);
     if (tradeOpportunity) {
       console.log(tradeOpportunity);
@@ -278,7 +290,7 @@ async function runInterval() {
         throw error;
       });
     }
-  } else if (trade.status === 'pending') {
+  } else if (trade.status === 'pending' && trade.orderId) {
     const fillOrder = await api.getOrderStatus(trade.subaccount, trade.orderId);
 
     // XXXX  looks like hasOrderSuccessfullyFilled(fillOrder) return true after an
@@ -289,7 +301,7 @@ async function runInterval() {
     if (hasOrderSuccessfullyFilled(fillOrder)) {
       console.log(`Trade order has been filled for market ${trade.marketId}.`);
       console.log(
-        `Filled ${fillOrder.filledSize} with average fill price of \$${fillOrder.avgFillPrice}.`,
+        `Filled ${fillOrder.filledSize} with average fill price of $${fillOrder.avgFillPrice}.`,
       );
 
       // Set stoploss
@@ -339,7 +351,7 @@ async function runInterval() {
         trade.size = fillOrder.size;
         trade.stoplossTriggerPrice = triggerPrice;
       }
-    } else if (fillOrder.status === 'open') {
+    } else if (fillOrder.status === 'open' && trade.marketId) {
       // Cancel open order if market moves away from the buy order too much.
       const marketData = await api.getMarket(trade.marketId);
 
@@ -355,6 +367,16 @@ async function runInterval() {
       }
     }
   } else if (trade.status === 'filled') {
+    // Require typescript aborter
+    if (
+      !trade.stoplossOrderId ||
+      !trade.orderId ||
+      !trade.timeOfOrder ||
+      !trade.avgFillPrice ||
+      !trade.size
+    ) {
+      throw new Error('Something went wrong. Missing required trade data.');
+    }
     const openOrder = await api.getOrderStatus(trade.subaccount, trade.orderId);
     const openStoplossOrder = await getTriggerOrder(
       trade.subaccount,
@@ -363,7 +385,7 @@ async function runInterval() {
     );
 
     // Check if its hit stop loss
-    if (openStoplossOrder.status === 'open') {
+    if (openStoplossOrder && openStoplossOrder.status === 'open') {
       const historicalPrices = await api.getHistoricalPrices(
         trade.marketId,
         secondsTo(15, 'minutes'),
@@ -396,7 +418,6 @@ async function runInterval() {
           sellPrice,
         );
         console.log(marketData.price > sellPrice, marketData.price < sellPrice);
-        // 0.7664950
 
         if (
           trade.side === 'buy'
@@ -429,13 +450,22 @@ async function runInterval() {
       trade.status = 'closed';
     }
   } else if (trade.status === 'closing') {
+    if (!trade || !trade.closeOrderId || !trade.stoplossOrderId) {
+      throw new Error('Something went wrong. Missing required trade data.');
+    }
+
     const orderHistory = await api.getOrderHistory(
       trade.subaccount,
       trade.marketId,
     );
-    const closeOrder = orderHistory.find(
-      (order) => order.id === trade.closeOrderId,
-    );
+
+    const closeOrder = orderHistory.find((order) => {
+      if (trade) {
+        return order.id === trade.closeOrderId;
+      } else {
+        return false;
+      }
+    });
     const openStoplossOrder = await getTriggerOrder(
       trade.subaccount,
       trade.marketId,
@@ -446,7 +476,7 @@ async function runInterval() {
     if (closeOrder && closeOrder.status === 'closed') {
       console.log('PROFIT TAKEN - TRADE CLOSED');
       trade.status = 'closed';
-    } else if (openStoplossOrder.status !== 'open') {
+    } else if (openStoplossOrder && openStoplossOrder.status !== 'open') {
       // If open stoploss isn't found then stoploss was hit.
       console.log('HIT STOPLOSS');
       trade.status = 'closed';
@@ -454,22 +484,32 @@ async function runInterval() {
   }
 
   // Cancel remaining trade orders and reset trade object.
-  if (trade.status === 'closed') {
+  if (trade && trade.status === 'closed') {
     await cancelAllTradeOrders(trade);
     // Reset trade object.
-    trade = {};
+    trade = undefined;
   }
-  console.log(`Trade status: ${trade.status}`);
+  console.log(`Trade status: ${trade ? trade.status : 'unknown'}`);
   processingInterval = false;
 }
 
-async function runBot() {
-  await runInterval().catch((error) => {
+async function runBot(subaccount: Subaccount, trade: Trade | undefined) {
+  const processingInterval = false;
+
+  // XXXXMove current trade here
+
+  await runInterval(subaccount, trade, processingInterval).catch((error) => {
     throw error;
   });
 
+  // XXXXCould seperate out to searchMarketForTrade and then manageTrade
+  // as two seperate intervals
+
+  // XXXXCreate a generic waitfor interval function and move out the interval
+  // is finished check into that.
+
   const pollingInterval = setInterval(async function () {
-    await runInterval().catch((error) => {
+    await runInterval(subaccount, trade, processingInterval).catch((error) => {
       clearInterval(pollingInterval);
       throw error;
     });
@@ -477,18 +517,26 @@ async function runBot() {
 }
 
 // An emergency cleanup function to attempt to cleanup any active orders.
-async function criticalErrorCleanup() {
-  await cancelAllTradeOrders(trade);
+// XXXX TODO - WIll not yet try to sell out of any positions!!!! Maybe won't
+// need to if I store trades in database. Restarting server can just
+// continue from where it left off.
+async function criticalErrorCleanup(trade: Trade | undefined) {
+  if (trade) {
+    await cancelAllTradeOrders(trade);
+  }
 }
 
 async function main() {
+  const subaccount = 'BOT-1';
+  let trade: Trade | undefined;
+
   try {
-    await runBot();
+    await runBot(subaccount, trade);
   } catch (error) {
     console.error('===== CRITICAL ERROR =====');
     console.error(error);
     console.log('Trying to cleanup.');
-    await criticalErrorCleanup().catch((error) => {
+    await criticalErrorCleanup(trade).catch((error) => {
       console.log(error);
       console.log('!!!!!!!!!!!!!!!');
       console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');

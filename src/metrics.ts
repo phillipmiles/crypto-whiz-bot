@@ -1,15 +1,19 @@
+interface Data {
+  close: number;
+}
+
 // Calculate Simple Moving Average
-export const calculateMA = (data: Array<unknown>) => {
-  const total = data.reduce(
-    (total: number, item: <unknown>) => total + item.close,
+export const calculateMA = (data: Data[]): number => {
+  const total: number = data.reduce(
+    (total: number, item) => total + item.close,
     0,
   );
 
   return total / data.length;
-}
+};
 
 export const recursiveEMAStep = (
-  data,
+  data: Data[],
   previousMA: number,
   smoothing: number,
   step: number,
@@ -21,10 +25,10 @@ export const recursiveEMAStep = (
     return recursiveEMAStep(data, ema, smoothing, step + 1);
   }
   return previousMA;
-}
+};
 
 // Calculate Exponential Moving Average
-export const calculateEMA = (data, observations: number): number => {
+export const calculateEMA = (data: Data[], observations: number): number => {
   // Smoothing / Weighting
   const smoothing = 2 / (observations + 1);
   const initMA = calculateMA(
@@ -37,5 +41,4 @@ export const calculateEMA = (data, observations: number): number => {
     smoothing,
     0,
   );
-}
-
+};
