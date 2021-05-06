@@ -66,6 +66,10 @@ import { Trade } from './Trade';
 // the 'any' type definintion on what's returned from apis which is fine but throws a risk
 // that the data I working with in the app might be bad.
 // XXXXXX
+// Could improve EMA check by getting the tangent line at the cross point or something.
+// Essentially find out the angle of the cross, perhaps taking in multiple data points.
+// Sharper angles might be more reliable.
+// XXXXXX
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
@@ -372,6 +376,7 @@ async function runInterval(
         )
       ) {
         await api.cancelOrder(trade.subaccount, fillOrder.id);
+        trade.status = 'closed';
       }
     }
   } else if (trade.status === 'filled') {
@@ -546,11 +551,30 @@ async function runBot(subaccount: Subaccount) {
 
   while (poll) {
     try {
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      //
       // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
       // // as two seperate intervals
+      //
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       // // XXXXCreate a generic waitfor interval function and move out the interval
       // // is finished check into that.
+      // change while loop to
+      // while !trade {
+      // interval searchMarketForTrade()
+      // }
+      // We could then transition straight into buying without waiting 5 seconds
+      // on polling interval cooldown.
+
       trade = await runInterval(subaccount, trade);
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
     } catch (error) {
