@@ -160,10 +160,11 @@ function isStoplossTriggered(subaccount, marketId, stoplossOrderId) {
 function findTradeOpportunity(subaccount) {
     return __awaiter(this, void 0, void 0, function* () {
         const marketIds = config_1.default[subaccount].markets;
+        // XXX TODO: Need to check that account has enough money to buy smallest amount
+        // of coin.
         for (const marketId of marketIds) {
             console.log(`Checking market ${marketId}`);
             const emaCross = yield hasEMACrossedInMarket(marketId, time_1.secondsTo(15, 'minutes'));
-            // const emaCross = "long";
             if (emaCross) {
                 console.log(`Found EMA cross '${emaCross}' in market ${marketId}.`);
                 const marketData = yield api_1.default.getMarket(marketId);
@@ -182,13 +183,17 @@ function findTradeOpportunity(subaccount) {
 }
 function startNewTrade(subaccount, marketId, side, price) {
     return __awaiter(this, void 0, void 0, function* () {
+        console.log('or here');
         const openOrders = yield api_1.default.getOpenOrders(subaccount);
+        console.log(openOrders);
         if (openOrders.length === 0) {
+            console.log('or are we');
             const marketData = yield api_1.default.getMarket(marketId);
             const accountData = yield api_1.default.getAccount(subaccount);
             const balances = yield api_1.default.getBalances(subaccount);
             const usdBalance = balances.find((balance) => balance.coin === marketData.quoteCurrency);
             let volume;
+            console.log('we in');
             if (marketData.type === 'spot') {
                 if (!usdBalance) {
                     throw new Error('Missing USD balance when attempting to open a trade.');
@@ -197,6 +202,10 @@ function startNewTrade(subaccount, marketId, side, price) {
             }
             else if (marketData.type === 'future') {
                 volume = Math.floor(accountData.freeCollateral / price);
+            }
+            if (!volume || volume <= 1) {
+                console.log('ERROR - NOT ENOUGH MONEY FOR TRADE');
+                return;
             }
             const order = yield api_1.default
                 .placeOrder(subaccount, {
@@ -217,6 +226,7 @@ function startNewTrade(subaccount, marketId, side, price) {
             console.log(`New ${side === 'buy' ? 'LONG' : 'SHORT'} trade started for market ${marketId}.`);
             console.log(`Bid size set for ${volume} at $${price}.`);
             // const trade = new Trade();
+            console.log('here');
             return {
                 orderId: order.id,
                 status: 'pending',
@@ -232,15 +242,9 @@ function startNewTrade(subaccount, marketId, side, price) {
         }
     });
 }
-function runInterval(subaccount, trade, processingInterval) {
+function runInterval(subaccount, trade) {
     return __awaiter(this, void 0, void 0, function* () {
         console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
-        // If still processing from last interval then don't process this interval.
-        if (processingInterval) {
-            console.log('Skipping interval');
-            return;
-        }
-        processingInterval = true;
         if (!trade || !trade.status) {
             const tradeOpportunity = yield findTradeOpportunity(subaccount);
             if (tradeOpportunity) {
@@ -248,6 +252,7 @@ function runInterval(subaccount, trade, processingInterval) {
                 trade = yield startNewTrade(subaccount, tradeOpportunity.marketId, tradeOpportunity.side, tradeOpportunity.price).catch((error) => {
                     throw error;
                 });
+                console.log(trade);
             }
         }
         else if (trade.status === 'pending' && trade.orderId) {
@@ -256,6 +261,7 @@ function runInterval(subaccount, trade, processingInterval) {
             // order was cancelled due to market price deviating away from bid.
             // placeConditionalOrder return error 'Negative trigger price'
             // Check to see if trade has been filled.
+            console.log(fillOrder, order_1.hasOrderSuccessfullyFilled(fillOrder));
             if (order_1.hasOrderSuccessfullyFilled(fillOrder)) {
                 console.log(`Trade order has been filled for market ${trade.marketId}.`);
                 console.log(`Filled ${fillOrder.filledSize} with average fill price of $${fillOrder.avgFillPrice}.`);
@@ -392,28 +398,81 @@ function runInterval(subaccount, trade, processingInterval) {
             trade = undefined;
         }
         console.log(`Trade status: ${trade ? trade.status : 'unknown'}`);
-        processingInterval = false;
+        return trade;
     });
 }
-function runBot(subaccount, trade) {
+const poll = ({ fn, validate, interval, maxAttempts }) => __awaiter(void 0, void 0, void 0, function* () {
+    let attempts = 0;
+    const executePoll = (resolve, reject) => __awaiter(void 0, void 0, void 0, function* () {
+        const result = yield fn();
+        attempts++;
+        if (validate(result)) {
+            return resolve(result);
+        }
+        else if (maxAttempts && attempts === maxAttempts) {
+            return reject(new Error('Exceeded max attempts'));
+        }
+        else {
+            setTimeout(executePoll, interval, resolve, reject);
+        }
+    });
+    return new Promise(executePoll);
+});
+function runBot(subaccount) {
     return __awaiter(this, void 0, void 0, function* () {
-        const processingInterval = false;
-        // XXXXMove current trade here
-        yield runInterval(subaccount, trade, processingInterval).catch((error) => {
-            throw error;
-        });
-        // XXXXCould seperate out to searchMarketForTrade and then manageTrade
-        // as two seperate intervals
-        // XXXXCreate a generic waitfor interval function and move out the interval
-        // is finished check into that.
-        const pollingInterval = setInterval(function () {
-            return __awaiter(this, void 0, void 0, function* () {
-                yield runInterval(subaccount, trade, processingInterval).catch((error) => {
-                    clearInterval(pollingInterval);
-                    throw error;
+        const POLL_INTERVAL = 5000;
+        let trade;
+        let poll = true;
+        // .XXXXXX
+        // const pol = async (fn, intervalBetween: number) => {
+        //   const executePol = async (resolve: any, reject: any) => {
+        //     const result = await fn();
+        //     setTimeout(executePoll, intervalBetween, resolve, reject);
+        //   };
+        //   return new Promise(executePol);
+        // };
+        while (poll) {
+            try {
+                // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
+                // // as two seperate intervals
+                // // XXXXCreate a generic waitfor interval function and move out the interval
+                // // is finished check into that.
+                trade = yield runInterval(subaccount, trade);
+                yield new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
+            }
+            catch (error) {
+                poll = false;
+                yield criticalErrorCleanup(trade).catch((error) => {
+                    console.log(error);
+                    console.log('!!!!!!!!!!!!!!!');
+                    console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
+                    console.log('TRADES MIGHT STILL BE ACTIVE');
+                    console.log('!!!!!!!!!!!!!!!');
+                    throw new Error(error);
                 });
-            });
-        }, 15000);
+                console.log('Successfully cleaned up.');
+            }
+        }
+        // await poll({
+        //   fn: () => runInterval(subaccount, trade),
+        //   validate: () => false,
+        //   interval: POLL_INTERVAL,
+        // });
+        // .XXXXXX
+        // await runInterval(subaccount).catch((error) => {
+        //   throw error;
+        // });
+        // // let trade: Trade | undefined;
+        // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
+        // // as two seperate intervals
+        // // XXXXCreate a generic waitfor interval function and move out the interval
+        // // is finished check into that.
+        // const pollingInterval = setInterval(async function () {
+        //   await runInterval(subaccount).catch((error) => {
+        //     clearInterval(pollingInterval);
+        //     throw error;
+        //   });
+        // }, 15000);
     });
 }
 // An emergency cleanup function to attempt to cleanup any active orders.
@@ -430,22 +489,12 @@ function criticalErrorCleanup(trade) {
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         const subaccount = 'BOT-1';
-        let trade;
         try {
-            yield runBot(subaccount, trade);
+            yield runBot(subaccount);
         }
         catch (error) {
             console.error('===== CRITICAL ERROR =====');
             console.error(error);
-            console.log('Trying to cleanup.');
-            yield criticalErrorCleanup(trade).catch((error) => {
-                console.log(error);
-                console.log('!!!!!!!!!!!!!!!');
-                console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
-                console.log('TRADES MIGHT STILL BE ACTIVE');
-                console.log('!!!!!!!!!!!!!!!');
-            });
-            console.log('Successfully cleaned up.');
         }
     });
 }
