@@ -10,4 +10,6 @@ exports.default = {
     description: "Buys on a 15 minutes EMA cross. Waits till next candle at which point it will just sell it if it's in profit",
     // marketBlacklist: [],
     // marketWhitelist: [],
+    // marketBlacklist: [],
+    // marketWhitelist: ['perpetual'],
 };
