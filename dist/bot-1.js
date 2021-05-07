@@ -36,6 +36,22 @@ dotenv.config();
 const api_1 = __importDefault(require("./api"));
 const order_1 = require("./order");
 const bots_1 = __importDefault(require("./bots/bots"));
+// Sentry error tracking
+const Sentry = __importStar(require("@sentry/node"));
+// import * as Tracing from '@sentry/tracing';
+Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    // Set tracesSampleRate to 1.0 to capture 100%
+    // of transactions for performance monitoring.
+    // We recommend adjusting this value in production
+    tracesSampleRate: 1.0,
+});
+// Performance monitoring somehow with sentry.
+// Need to learn more on this before using it.
+// const transaction = Sentry.startTransaction({
+//   op: 'test',
+//   name: 'My First Test Transaction',
+// });
 // TODO
 // - Firebase trade saving
 // XXXX
@@ -91,6 +107,18 @@ const bots_1 = __importDefault(require("./bots/bots"));
 // XXXXXX
 // Bot variant - Only get into EMA crosses if current ptice is or ema is a certain disatnce from the cloest long MA line.
 // For this variant may want to hold on until ema crosses back again.
+// XXXXXX
+// For variant waiting for returning ema cross, probably should be shifting stoploss
+// higher as it goes. This will protect it on those moonshots that return back down again.
+// XXXXX
+// BUG!!!! - In the past have recieved not logged in error with an unauthorided error
+// code - forgot to take it down. But need to reattempt loggin when this happens as
+// this was likily a discrepency with the timestamp sent in the authorisation headers.
+// and not a real fail.
+// XXXXXX
+// SENTRY
+// XXXXXX
+// Test miniumum coin purchase size with BTT - minimum purchase 1000 but it only costs $0.0087 for 1.
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
 //     const ema = data[step].close * smoothing + previousMA * (1 - smoothing);
@@ -225,6 +253,12 @@ function runBot() {
                 console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
                 console.log('TRADES MIGHT STILL BE ACTIVE');
                 console.log('!!!!!!!!!!!!!!!');
+                if (process.env.NODE_ENV === 'production') {
+                    Sentry.captureException(error);
+                    // Performance monitoring somehow with sentry.
+                    // Need to learn more on this before using it.
+                    // transaction.finish();
+                }
                 throw new Error(error);
                 // });
                 // console.log('Successfully cleaned up.');

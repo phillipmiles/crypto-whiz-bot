@@ -46,13 +46,14 @@ const createAxiosError = (axiosError) => {
     error.message = axiosError.response.data.error;
     return error;
 };
-const makeApiCall = (apiCall) => __awaiter(void 0, void 0, void 0, function* () {
+const callApi = (apiCall) => __awaiter(void 0, void 0, void 0, function* () {
     let response;
     try {
         response = yield apiCall();
     }
     catch (error) {
-        console.log(error);
+        // / XXXX If error code is whatever unauthorised is then
+        // reattempt call a few times before throwing error.
         throw createAxiosError(error);
     }
     return response.data.result;
@@ -114,7 +115,7 @@ function getOpenTriggerOrders(subaccount, marketId) {
 // https://docs.ftx.com/#get-order-history
 function getOrderHistory(subaccount, marketId) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.get(`${process.env.API_ENDPOINT}/orders/history?market=${marketId}`, {
+        return callApi(() => axios_1.default.get(`${process.env.API_ENDPOINT}/orders/history?market=${marketId}`, {
             headers: authenticate_1.authenticateRestHeaders(`/orders/history?market=${marketId}`, 'GET', subaccount),
         }));
     });
@@ -122,21 +123,21 @@ function getOrderHistory(subaccount, marketId) {
 // https://docs.ftx.com/#get-trigger-order-history
 function getTriggerOrderHistory(subaccount, marketId) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.get(`${process.env.API_ENDPOINT}/conditional_orders/history?market=${marketId}`, {
+        return callApi(() => axios_1.default.get(`${process.env.API_ENDPOINT}/conditional_orders/history?market=${marketId}`, {
             headers: authenticate_1.authenticateRestHeaders(`/conditional_orders/history?market=${marketId}`, 'GET', subaccount),
         }));
     });
 }
 function getOrderStatus(subaccount, orderId) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.get(`${process.env.API_ENDPOINT}/orders/${orderId}`, {
+        return callApi(() => axios_1.default.get(`${process.env.API_ENDPOINT}/orders/${orderId}`, {
             headers: authenticate_1.authenticateRestHeaders(`/orders/${orderId}`, 'GET', subaccount),
         }));
     });
 }
 function placeOrder(subaccount, payload) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.post(`${process.env.API_ENDPOINT}/orders`, payload, {
+        return callApi(() => axios_1.default.post(`${process.env.API_ENDPOINT}/orders`, payload, {
             headers: authenticate_1.authenticateRestHeaders('/orders', 'POST', subaccount, payload),
         }));
         // // console.log('do')
@@ -153,7 +154,7 @@ function placeOrder(subaccount, payload) {
 }
 function placeConditionalOrder(subaccount, payload) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
+        return callApi(() => axios_1.default.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
             headers: authenticate_1.authenticateRestHeaders('/conditional_orders', 'POST', subaccount, payload),
         }));
     });
@@ -168,7 +169,7 @@ function cancelOrder(subaccount, orderId) {
 }
 function cancelOpenTriggerOrder(subaccount, orderId) {
     return __awaiter(this, void 0, void 0, function* () {
-        return makeApiCall(() => axios_1.default.delete(`${process.env.API_ENDPOINT}/conditional_orders/${orderId}`, {
+        return callApi(() => axios_1.default.delete(`${process.env.API_ENDPOINT}/conditional_orders/${orderId}`, {
             headers: authenticate_1.authenticateRestHeaders(`/conditional_orders/${orderId}`, 'DELETE', subaccount),
         }));
     });

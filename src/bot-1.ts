@@ -5,6 +5,27 @@ import { cancelAllTradeOrders, TradeOrder } from './order';
 import { Trade } from './Trade';
 import bots from './bots/bots';
 
+// Sentry error tracking
+import * as Sentry from '@sentry/node';
+// Don't know if I need Tracing!?!?!
+// import * as Tracing from '@sentry/tracing';
+
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+
+  // Set tracesSampleRate to 1.0 to capture 100%
+  // of transactions for performance monitoring.
+  // We recommend adjusting this value in production
+  tracesSampleRate: 1.0,
+});
+
+// Performance monitoring somehow with sentry.
+// Need to learn more on this before using it.
+// const transaction = Sentry.startTransaction({
+//   op: 'test',
+//   name: 'My First Test Transaction',
+// });
+
 // TODO
 // - Firebase trade saving
 // XXXX
@@ -69,9 +90,8 @@ import bots from './bots/bots';
 // this was likily a discrepency with the timestamp sent in the authorisation headers.
 // and not a real fail.
 // XXXXXX
-// SENTRY
-// XXXXXX
 // Test miniumum coin purchase size with BTT - minimum purchase 1000 but it only costs $0.0087 for 1.
+// XXXXXX
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
@@ -234,6 +254,12 @@ async function runBot() {
       console.log('FAILED TO CLEANUP AFTER CRITICAL ERROR');
       console.log('TRADES MIGHT STILL BE ACTIVE');
       console.log('!!!!!!!!!!!!!!!');
+      if (process.env.NODE_ENV === 'production') {
+        Sentry.captureException(error);
+        // Performance monitoring somehow with sentry.
+        // Need to learn more on this before using it.
+        // transaction.finish();
+      }
       throw new Error(error);
       // });
       // console.log('Successfully cleaned up.');
