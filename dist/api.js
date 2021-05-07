@@ -70,6 +70,11 @@ function getHistoricalPrices(marketId, timeframe) {
         return response.data.result;
     });
 }
+function getMarkets() {
+    return __awaiter(this, void 0, void 0, function* () {
+        return callApi(() => axios_1.default.get(`${process.env.API_ENDPOINT}/markets`));
+    });
+}
 function getMarket(marketId) {
     return __awaiter(this, void 0, void 0, function* () {
         const response = yield axios_1.default.get(`${process.env.API_ENDPOINT}/markets/${marketId}`);
@@ -176,6 +181,7 @@ function cancelOpenTriggerOrder(subaccount, orderId) {
 }
 exports.default = {
     getHistoricalPrices,
+    getMarkets,
     getMarket,
     getAccount,
     getBalances,

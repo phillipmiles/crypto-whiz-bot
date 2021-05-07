@@ -16,29 +16,6 @@ const time_1 = require("../../utils/time");
 const metrics_1 = require("../../metrics");
 const api_1 = __importDefault(require("../../api"));
 const config_1 = __importDefault(require("./config"));
-const marketIds = [
-    'BTC-PERP',
-    'ETH-PERP',
-    'DOGE-PERP',
-    'XRP-PERP',
-    'ADA-PERP',
-    'KNC-PERP',
-    'ZRX-PERP',
-    'GRT-PERP',
-    'IOTA-PERP',
-    'ALGO-PERP',
-    'BAT-PERP',
-    'REN-PERP',
-    'LRC-PERP',
-    'MATIC-PERP',
-    'ZIL-PERP',
-    'RSR-PERP',
-    'VET-PERP',
-    'AUDIO-PERP',
-    'STX-PERP',
-    'STORJ-PERP',
-    'CRV-PERP',
-];
 const hasEMACrossedInMarket = (marketId, timeframe) => __awaiter(void 0, void 0, void 0, function* () {
     const historicalData = yield api_1.default.getHistoricalPrices(marketId, timeframe);
     // Use marketData for more frequently updated current price.
@@ -56,7 +33,11 @@ const hasEMACrossedInMarket = (marketId, timeframe) => __awaiter(void 0, void 0,
     // const currentShortEMA = calculateEMA(historicalData.slice(0), 10);
     const currentLongEMA = metrics_1.calculateEMA(data, 21);
     const currentShortEMA = metrics_1.calculateEMA(data, 10);
-    console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA), Math.floor((currentLongEMA - currentShortEMA) * 100000));
+    // console.log(
+    //   Math.sign(previousLongEMA - previousShortEMA),
+    //   Math.sign(currentLongEMA - currentShortEMA),
+    //   Math.floor((currentLongEMA - currentShortEMA) * 100000),
+    // );
     // console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA));
     if (Math.sign(previousLongEMA - previousShortEMA) !==
         Math.sign(currentLongEMA - currentShortEMA)) {
@@ -72,27 +53,27 @@ const hasEMACrossedInMarket = (marketId, timeframe) => __awaiter(void 0, void 0,
     }
     return;
 });
-const search = () => __awaiter(void 0, void 0, void 0, function* () {
+const evaluateMarket = (marketId) => __awaiter(void 0, void 0, void 0, function* () {
     // XXX TODO: Need to check that account has enough money to buy smallest amount
     // of coin.
-    for (const marketId of marketIds) {
-        console.log(`Checking market ${marketId}`);
-        const emaCross = yield hasEMACrossedInMarket(marketId, time_1.secondsTo(15, 'minutes'));
-        if (emaCross) {
-            console.log(`Found EMA cross '${emaCross}' in market ${marketId}.`);
-            const marketData = yield api_1.default.getMarket(marketId);
-            // Can't short a spot market.
-            if (emaCross === 'short' && marketData.type === 'spot') {
-                return;
-            }
-            return {
-                subaccount: config_1.default.name,
-                marketId: marketId,
-                side: emaCross === 'long' ? 'buy' : 'sell',
-                price: marketData.price,
-            };
+    // for (const marketId of marketIds) {
+    //   console.log(`Checking market ${marketId}`);
+    const emaCross = yield hasEMACrossedInMarket(marketId, time_1.secondsTo(15, 'minutes'));
+    if (emaCross) {
+        console.log(`Found EMA cross '${emaCross}' in market ${marketId}.`);
+        const marketData = yield api_1.default.getMarket(marketId);
+        // Can't short a spot market.
+        if (emaCross === 'short' && marketData.type === 'spot') {
+            return;
         }
+        return {
+            subaccount: config_1.default.name,
+            marketId: marketId,
+            side: emaCross === 'long' ? 'buy' : 'sell',
+            price: marketData.price,
+        };
     }
+    // }
     return;
 });
-exports.default = search;
+exports.default = evaluateMarket;

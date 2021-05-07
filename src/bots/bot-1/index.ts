@@ -1,10 +1,10 @@
 import mange from './manage';
-import search from './search';
+import evaluateMarket from './evaluateMarket';
 import config from './config';
 
 const bot = {
   ...config,
-  search: search,
+  evaluateMarket: evaluateMarket,
   manage: mange,
 };
 

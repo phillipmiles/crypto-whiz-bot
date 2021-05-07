@@ -136,7 +136,7 @@ const mange = async (trade: Trade): Promise<Trade> => {
           historicalPrices[historicalPrices.length - 1].startTime,
         ).getTime()
       ) {
-        console.log('Looking for profit');
+        console.log(`${trade.marketId}: Looking for profit`);
         const marketData = await api.getMarket(trade.marketId);
         const accountData = await api.getAccount(trade.subaccount);
 

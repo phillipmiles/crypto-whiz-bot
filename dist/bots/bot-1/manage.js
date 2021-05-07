@@ -105,7 +105,7 @@ const mange = (trade) => __awaiter(void 0, void 0, void 0, function* () {
             // XXXX!!!!! if(hasNewCandleStarted) {}
             if (trade.timeOfOrder <
                 new Date(historicalPrices[historicalPrices.length - 1].startTime).getTime()) {
-                console.log('Looking for profit');
+                console.log(`${trade.marketId}: Looking for profit`);
                 const marketData = yield api_1.default.getMarket(trade.marketId);
                 const accountData = yield api_1.default.getAccount(trade.subaccount);
                 const sellPrice = order_1.calcSellPrice(trade.side, trade.avgFillPrice, trade.size, PROFIT_DEVIATION, accountData.takerFee);

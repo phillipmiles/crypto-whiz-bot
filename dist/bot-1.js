@@ -38,6 +38,8 @@ const order_1 = require("./order");
 const bots_1 = __importDefault(require("./bots/bots"));
 // Sentry error tracking
 const Sentry = __importStar(require("@sentry/node"));
+const time_1 = require("./utils/time");
+// Don't know if I need Tracing!?!?!
 // import * as Tracing from '@sentry/tracing';
 Sentry.init({
     dsn: process.env.SENTRY_DSN,
@@ -116,9 +118,12 @@ Sentry.init({
 // this was likily a discrepency with the timestamp sent in the authorisation headers.
 // and not a real fail.
 // XXXXXX
-// SENTRY
-// XXXXXX
 // Test miniumum coin purchase size with BTT - minimum purchase 1000 but it only costs $0.0087 for 1.
+// XXXXXX
+// Variant idea: if only making EMA cross trades when distant from MAs, maybe also check if
+// the MA is above or below. If above on take long positions. If the MA is below, only take
+// short positions.
+// XXXXXX
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
 //     const ema = data[step].close * smoothing + previousMA * (1 - smoothing);
@@ -138,6 +143,30 @@ Sentry.init({
 //   const initMA = calculateMA(data.slice(data.length - num - (observations * 2) + 1, data.length - num - observations + 1));
 //   return recursiveHistoricalEMAStep(data.slice(data.length - observations), initMA, smoothing, 0, num);
 // }
+const MARKET_IDS = [
+    'BTC-PERP',
+    'ETH-PERP',
+    'LTC-PERP',
+    'DOGE-PERP',
+    'XRP-PERP',
+    'ADA-PERP',
+    'KNC-PERP',
+    'ZRX-PERP',
+    'GRT-PERP',
+    'IOTA-PERP',
+    'ALGO-PERP',
+    'BAT-PERP',
+    'REN-PERP',
+    'LRC-PERP',
+    'MATIC-PERP',
+    'ZIL-PERP',
+    'RSR-PERP',
+    'VET-PERP',
+    'AUDIO-PERP',
+    'STX-PERP',
+    'STORJ-PERP',
+    'CRV-PERP',
+];
 const openTrade = (tradeOrder) => __awaiter(void 0, void 0, void 0, function* () {
     const { marketId, side, subaccount, price } = tradeOrder;
     const openOrders = yield api_1.default.getOpenOrders(subaccount);
@@ -152,12 +181,16 @@ const openTrade = (tradeOrder) => __awaiter(void 0, void 0, void 0, function* ()
             if (!usdBalance) {
                 throw new Error('Missing USD balance when attempting to open a trade.');
             }
-            volume = Math.floor(usdBalance.free / price);
+            // volume = Math.floor(usdBalance.free / price);
         }
         else if (marketData.type === 'future') {
-            volume = Math.floor(accountData.freeCollateral / price);
+            // volume = Math.floor(
+            //   (accountData.freeCollateral * accountData.leverage) / price,
+            // );
+            volume = (accountData.freeCollateral * accountData.leverage) / price;
         }
-        if (!volume || volume <= 1) {
+        console.log(volume, marketData.sizeIncrement, accountData.freeCollateral, accountData.leverage, price);
+        if (!volume || volume <= marketData.sizeIncrement) {
             console.log('ERROR - NOT ENOUGH MONEY FOR TRADE');
             return;
         }
@@ -185,22 +218,33 @@ const openTrade = (tradeOrder) => __awaiter(void 0, void 0, void 0, function* ()
             positionType: side === 'buy' ? 'long' : 'short',
             side: side,
             timeOfOrder: new Date().getTime(),
-            coin: marketData.baseCurrency,
-            currency: marketData.quoteCurrency,
+            // coin: marketData.baseCurrency,
+            // currency: marketData.quoteCurrency,
             subaccount: subaccount,
             marketId: marketId,
             marketType: marketData.type,
         };
     }
 });
+const canAffordMarket = (capital, price, minimumVolume) => capital > price * minimumVolume;
 function runBot() {
     return __awaiter(this, void 0, void 0, function* () {
         const POLL_INTERVAL = 5000;
         const openTrades = [];
+        const subaccountsData = {};
+        let marketsData = yield api_1.default.getMarkets();
+        const historicalMarketsData = {};
+        let marketDataLastUpdatedAt = new Date().getTime();
         let poll = true;
         while (poll) {
             console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
             try {
+                if (marketDataLastUpdatedAt + time_1.millisecondsTo(1, 'minutes') <
+                    new Date().getTime()) {
+                    console.log('Updating local market data.');
+                    marketsData = yield api_1.default.getMarkets();
+                    marketDataLastUpdatedAt = new Date().getTime();
+                }
                 // // XXXXCreate a generic waitfor interval function and move out the interval
                 // // is finished check into that.
                 // change while loop to
@@ -212,17 +256,47 @@ function runBot() {
                 // Instead of bots call them and think of them as subaccounts!!!!
                 // This way of editing the openTrade array seems overengineered. Maybe use class instances...??
                 for (const subaccount of bots_1.default) {
+                    const filteredMarketData = marketsData.filter((market) => MARKET_IDS.find((id) => market.name === id));
+                    // console.log(subaccountsData);
+                    if (!subaccountsData[subaccount.name] ||
+                        subaccountsData[subaccount.name].lastUpdatedAt +
+                            time_1.millisecondsTo(1, 'minutes') <
+                            new Date().getTime()) {
+                        console.log(`Updating stored local data for subaccount '${subaccount.name}'.`);
+                        // DON"T AWAIT THESE UOPDATEWSSS
+                        subaccountsData[subaccount.name] = yield api_1.default.getAccount(subaccount.name);
+                    }
                     const trade = openTrades.find((trade) => trade.subaccount === subaccount.name);
                     if (!trade) {
                         console.log('Started search');
                         // Look for a trade order.
-                        const tradeOrder = yield subaccount.search();
-                        console.log('Finished search');
-                        // If a trade order was made, start a new trade.
-                        if (tradeOrder) {
-                            const newTrade = yield openTrade(tradeOrder);
-                            if (newTrade) {
-                                openTrades.push(newTrade);
+                        // XXXXXXX
+                        // Pass available captial to bots search function so we dno't return
+                        // a trade we can't afford.
+                        // ...
+                        // To make this even better. Skip searching a market if the stored historical
+                        // prices suggest we are unlikely to be able to afford the smallest price of this.
+                        // This prevents unecessary quering of the market.
+                        // XXXXXXX
+                        for (const market of filteredMarketData) {
+                            // console.log(market);
+                            // if(historicalMarketsData.lastUpdatedAt <  new Date().getTime() + millisecondsTo(1, 'minutes'))
+                            if (canAffordMarket(subaccountsData[subaccount.name].freeCollateral, market.price, market.sizeIncrement)) {
+                                console.log(`Checking market ${market.name}`);
+                                const tradeOrder = yield subaccount.evaluateMarket(market.name);
+                                // }
+                                console.log('Finished search');
+                                // If a trade order was made, start a new trade.
+                                if (tradeOrder) {
+                                    const newTrade = yield openTrade(tradeOrder);
+                                    if (newTrade) {
+                                        openTrades.push(newTrade);
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                console.log(`Skipping market ${market.name}. ${subaccount.name} doesn't have enough capital.`);
                             }
                         }
                     }
@@ -236,6 +310,8 @@ function runBot() {
                         const openTradeIndex = openTrades.findIndex((item) => item.subaccount === updatedTrade.subaccount);
                         // Stop observing trade if it's closed otherwise update it.
                         if (updatedTrade.status === 'closed') {
+                            // XXXXXX When trade is closed we should requery and update whatever it is
+                            // that's storing subaccount's total capital value.
                             openTrades.splice(openTradeIndex, 1);
                         }
                         else {

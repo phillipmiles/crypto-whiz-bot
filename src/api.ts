@@ -1,5 +1,6 @@
 import axios, { AxiosResponse, AxiosError } from 'axios';
 import { authenticateRestHeaders } from './authenticate';
+import { Market } from './market';
 // import { Subaccount } from './config';
 import { Order, TriggerOrder } from './order';
 // interface ApiError extends Error {
@@ -75,7 +76,11 @@ async function getHistoricalPrices(marketId: string, timeframe: number) {
   return response.data.result;
 }
 
-async function getMarket(marketId: string) {
+async function getMarkets(): Promise<Market[]> {
+  return callApi(() => axios.get(`${process.env.API_ENDPOINT}/markets`));
+}
+
+async function getMarket(marketId: string): Promise<Market> {
   const response = await axios.get(
     `${process.env.API_ENDPOINT}/markets/${marketId}`,
   );
@@ -88,6 +93,7 @@ async function getMarket(marketId: string) {
 interface Account {
   freeCollateral: number;
   takerFee: number;
+  leverage: number;
 }
 
 async function getAccount(subaccount: string): Promise<Account> {
@@ -251,6 +257,7 @@ async function cancelOpenTriggerOrder(subaccount: string, orderId: string) {
 
 export default {
   getHistoricalPrices,
+  getMarkets,
   getMarket,
   getAccount,
   getBalances,
