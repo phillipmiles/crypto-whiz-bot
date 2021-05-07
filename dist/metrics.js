@@ -8,7 +8,6 @@ const calculateMA = (data) => {
 };
 exports.calculateMA = calculateMA;
 const recursiveEMAStep = (data, previousMA, smoothing, step) => {
-    // console.log('step', step, data.length);
     if (step < data.length) {
         const ema = data[step].close * smoothing + previousMA * (1 - smoothing);
         return exports.recursiveEMAStep(data, ema, smoothing, step + 1);

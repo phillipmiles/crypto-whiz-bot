@@ -35,8 +35,6 @@ const dotenv = __importStar(require("dotenv"));
 dotenv.config();
 const api_1 = __importDefault(require("./api"));
 const order_1 = require("./order");
-const metrics_1 = require("./metrics");
-// import bot from './bots/bot-1';
 const bots_1 = __importDefault(require("./bots/bots"));
 // TODO
 // - Firebase trade saving
@@ -89,6 +87,10 @@ const bots_1 = __importDefault(require("./bots/bots"));
 // Essentially find out the angle of the cross, perhaps taking in multiple data points.
 // Sharper angles might be more reliable.
 // XXXXXX
+// Bot variant - Sell on reverse EMA cross before letting it hit stop loss.
+// XXXXXX
+// Bot variant - Only get into EMA crosses if current ptice is or ema is a certain disatnce from the cloest long MA line.
+// For this variant may want to hold on until ema crosses back again.
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
 //     const ema = data[step].close * smoothing + previousMA * (1 - smoothing);
@@ -108,41 +110,6 @@ const bots_1 = __importDefault(require("./bots/bots"));
 //   const initMA = calculateMA(data.slice(data.length - num - (observations * 2) + 1, data.length - num - observations + 1));
 //   return recursiveHistoricalEMAStep(data.slice(data.length - observations), initMA, smoothing, 0, num);
 // }
-function hasEMACrossedInMarket(marketId, timeframe) {
-    return __awaiter(this, void 0, void 0, function* () {
-        const historicalData = yield api_1.default.getHistoricalPrices(marketId, timeframe);
-        // Use marketData for more frequently updated current price.
-        const marketData = yield api_1.default.getMarket(marketId);
-        const data = [
-            ...historicalData.slice(0, historicalData.length - 1),
-            ...[{ close: marketData.price }],
-        ];
-        // console.log('MA', calculateMA(data.slice(data.length - 21)));
-        // console.log(historicalData[historicalData.length - 1].close, marketData.price)
-        // console.log('data', data)
-        const previousLongEMA = metrics_1.calculateEMA(historicalData.slice(0, historicalData.length - 1), 21);
-        const previousShortEMA = metrics_1.calculateEMA(historicalData.slice(0, historicalData.length - 1), 10);
-        // const currentLongEMA = calculateEMA(historicalData.slice(0), 21);
-        // const currentShortEMA = calculateEMA(historicalData.slice(0), 10);
-        const currentLongEMA = metrics_1.calculateEMA(data, 21);
-        const currentShortEMA = metrics_1.calculateEMA(data, 10);
-        console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA), Math.floor((currentLongEMA - currentShortEMA) * 100000));
-        // console.log(Math.sign(previousLongEMA - previousShortEMA), Math.sign(currentLongEMA - currentShortEMA));
-        if (Math.sign(previousLongEMA - previousShortEMA) !==
-            Math.sign(currentLongEMA - currentShortEMA)) {
-            console.log('CROSSED');
-            if (Math.sign(currentLongEMA - currentShortEMA) === 1) {
-                console.log('GO SHORT');
-                return 'short';
-            }
-            else {
-                console.log('GO LONG');
-                return 'long';
-            }
-        }
-        return;
-    });
-}
 const openTrade = (tradeOrder) => __awaiter(void 0, void 0, void 0, function* () {
     const { marketId, side, subaccount, price } = tradeOrder;
     const openOrders = yield api_1.default.getOpenOrders(subaccount);
@@ -203,61 +170,27 @@ function runBot() {
         const POLL_INTERVAL = 5000;
         const openTrades = [];
         let poll = true;
-        // .XXXXXX
-        // const pol = async (fn, intervalBetween: number) => {
-        //   const executePol = async (resolve: any, reject: any) => {
-        //     const result = await fn();
-        //     setTimeout(executePoll, intervalBetween, resolve, reject);
-        //   };
-        //   return new Promise(executePol);
-        // };
         while (poll) {
             console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
             try {
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                //
-                // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
-                // // as two seperate intervals
-                //
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                // X!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 // // XXXXCreate a generic waitfor interval function and move out the interval
                 // // is finished check into that.
                 // change while loop to
                 // while !trade {
                 // interval searchMarketForTrade()
                 // }
-                // We could then transition straight into buying without waiting 5 seconds
-                // on polling interval cooldown.
                 // Instead of bots call them and think of them as subaccounts!!!!
                 // Instead of bots call them and think of them as subaccounts!!!!
                 // Instead of bots call them and think of them as subaccounts!!!!
-                // This way of editing the openTrade array seems overengineered.
+                // This way of editing the openTrade array seems overengineered. Maybe use class instances...??
                 for (const subaccount of bots_1.default) {
-                    // await bots.forEach(async (subaccount) => {
                     const trade = openTrades.find((trade) => trade.subaccount === subaccount.name);
-                    if (trade) {
-                        const updatedTrade = yield subaccount.manage(trade);
-                        const openTradeIndex = openTrades.findIndex((item) => item.subaccount === updatedTrade.subaccount);
-                        if (updatedTrade.status === 'closed') {
-                            openTrades.splice(openTradeIndex, 1);
-                        }
-                        else {
-                            openTrades.splice(openTradeIndex, 1, updatedTrade);
-                            // trade = await runInterval(subaccount, trade);
-                        }
-                    }
-                    else {
+                    if (!trade) {
                         console.log('Started search');
+                        // Look for a trade order.
                         const tradeOrder = yield subaccount.search();
                         console.log('Finished search');
+                        // If a trade order was made, start a new trade.
                         if (tradeOrder) {
                             const newTrade = yield openTrade(tradeOrder);
                             if (newTrade) {
@@ -265,10 +198,24 @@ function runBot() {
                             }
                         }
                     }
+                    else {
+                        // XXXXXXXX
+                        // XXX Need to detect a successful trade here so I
+                        // can automatically post to Firebase without needing
+                        // to include it in every bots manage function.
+                        // XXXXXXXX
+                        const updatedTrade = yield subaccount.manage(trade);
+                        const openTradeIndex = openTrades.findIndex((item) => item.subaccount === updatedTrade.subaccount);
+                        // Stop observing trade if it's closed otherwise update it.
+                        if (updatedTrade.status === 'closed') {
+                            openTrades.splice(openTradeIndex, 1);
+                        }
+                        else {
+                            openTrades.splice(openTradeIndex, 1, updatedTrade);
+                        }
+                    }
                 }
-                console.log('TimeoutStart');
                 yield new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-                console.log('TimeoutOver');
             }
             catch (error) {
                 poll = false;
@@ -283,26 +230,8 @@ function runBot() {
                 // console.log('Successfully cleaned up.');
             }
         }
-        // await poll({
-        //   fn: () => runInterval(subaccount, trade),
-        //   validate: () => false,
-        //   interval: POLL_INTERVAL,
-        // });
-        // .XXXXXX
-        // await runInterval(subaccount).catch((error) => {
-        //   throw error;
-        // });
-        // // let trade: Trade | undefined;
-        // // XXXXCould seperate out to searchMarketForTrade and then manageTrade
-        // // as two seperate intervals
         // // XXXXCreate a generic waitfor interval function and move out the interval
         // // is finished check into that.
-        // const pollingInterval = setInterval(async function () {
-        //   await runInterval(subaccount).catch((error) => {
-        //     clearInterval(pollingInterval);
-        //     throw error;
-        //   });
-        // }, 15000);
     });
 }
 // An emergency cleanup function to attempt to cleanup any active orders.

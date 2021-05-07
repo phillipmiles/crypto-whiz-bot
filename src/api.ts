@@ -47,14 +47,13 @@ const createAxiosError = (axiosError: AxiosError) => {
   return error;
 };
 
-const makeApiCall = async (
-  apiCall: () => Promise<AxiosResponse>,
-): Promise<any> => {
+const callApi = async (apiCall: () => Promise<AxiosResponse>): Promise<any> => {
   let response;
   try {
     response = await apiCall();
   } catch (error) {
-    console.log(error);
+    // / XXXX If error code is whatever unauthorised is then
+    // reattempt call a few times before throwing error.
     throw createAxiosError(error);
   }
   return response.data.result;
@@ -150,7 +149,7 @@ async function getOrderHistory(
   subaccount: string,
   marketId: string,
 ): Promise<Order[]> {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.get(`${process.env.API_ENDPOINT}/orders/history?market=${marketId}`, {
       headers: authenticateRestHeaders(
         `/orders/history?market=${marketId}`,
@@ -166,7 +165,7 @@ async function getTriggerOrderHistory(
   subaccount: string,
   marketId: string,
 ): Promise<TriggerOrder[]> {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.get(
       `${process.env.API_ENDPOINT}/conditional_orders/history?market=${marketId}`,
       {
@@ -184,7 +183,7 @@ async function getOrderStatus(
   subaccount: string,
   orderId: string,
 ): Promise<Order> {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.get(`${process.env.API_ENDPOINT}/orders/${orderId}`, {
       headers: authenticateRestHeaders(`/orders/${orderId}`, 'GET', subaccount),
     }),
@@ -192,7 +191,7 @@ async function getOrderStatus(
 }
 
 async function placeOrder(subaccount: string, payload: unknown) {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.post(`${process.env.API_ENDPOINT}/orders`, payload, {
       headers: authenticateRestHeaders('/orders', 'POST', subaccount, payload),
     }),
@@ -211,7 +210,7 @@ async function placeOrder(subaccount: string, payload: unknown) {
 }
 
 async function placeConditionalOrder(subaccount: string, payload: unknown) {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.post(`${process.env.API_ENDPOINT}/conditional_orders`, payload, {
       headers: authenticateRestHeaders(
         '/conditional_orders',
@@ -239,7 +238,7 @@ async function cancelOrder(subaccount: string, orderId: string) {
 }
 
 async function cancelOpenTriggerOrder(subaccount: string, orderId: string) {
-  return makeApiCall(() =>
+  return callApi(() =>
     axios.delete(`${process.env.API_ENDPOINT}/conditional_orders/${orderId}`, {
       headers: authenticateRestHeaders(
         `/conditional_orders/${orderId}`,

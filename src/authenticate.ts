@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import config, { Subaccount } from './config';
+import config from './config';
 
 export type HttpMethod = 'GET' | 'POST' | 'DELETE';
 

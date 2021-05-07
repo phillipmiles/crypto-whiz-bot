@@ -1,20 +1,8 @@
 import * as dotenv from 'dotenv';
 dotenv.config();
 import api from './api';
-import { secondsTo } from './utils/time';
-import {
-  hasOrderSuccessfullyFilled,
-  calcStoplossTriggerPrice,
-  hasPriceDeviatedFromBidOrder,
-  cancelAllTradeOrders,
-  calcSellPrice,
-  Side,
-  TradeOrder,
-} from './order';
-import { calculateEMA } from './metrics';
-import config, { Subaccount } from './config';
+import { cancelAllTradeOrders, TradeOrder } from './order';
 import { Trade } from './Trade';
-// import bot from './bots/bot-1';
 import bots from './bots/bots';
 
 // TODO
@@ -68,6 +56,22 @@ import bots from './bots/bots';
 // Essentially find out the angle of the cross, perhaps taking in multiple data points.
 // Sharper angles might be more reliable.
 // XXXXXX
+// Bot variant - Sell on reverse EMA cross before letting it hit stop loss.
+// XXXXXX
+// Bot variant - Only get into EMA crosses if current ptice is or ema is a certain disatnce from the cloest long MA line.
+// For this variant may want to hold on until ema crosses back again.
+// XXXXXX
+// For variant waiting for returning ema cross, probably should be shifting stoploss
+// higher as it goes. This will protect it on those moonshots that return back down again.
+// XXXXX
+// BUG!!!! - In the past have recieved not logged in error with an unauthorided error
+// code - forgot to take it down. But need to reattempt loggin when this happens as
+// this was likily a discrepency with the timestamp sent in the authorisation headers.
+// and not a real fail.
+// XXXXXX
+// SENTRY
+// XXXXXX
+// Test miniumum coin purchase size with BTT - minimum purchase 1000 but it only costs $0.0087 for 1.
 
 // function recursiveHistoricalEMAStep(data, previousMA, smoothing, step, num) {
 //   if (step < data.length) {
@@ -182,7 +186,7 @@ async function runBot() {
       // Instead of bots call them and think of them as subaccounts!!!!
       // Instead of bots call them and think of them as subaccounts!!!!
 
-      // This way of editing the openTrade array seems overengineered.
+      // This way of editing the openTrade array seems overengineered. Maybe use class instances...??
       for (const subaccount of bots) {
         const trade = openTrades.find(
           (trade) => trade.subaccount === subaccount.name,
@@ -190,8 +194,10 @@ async function runBot() {
 
         if (!trade) {
           console.log('Started search');
+          // Look for a trade order.
           const tradeOrder = await subaccount.search();
           console.log('Finished search');
+          // If a trade order was made, start a new trade.
           if (tradeOrder) {
             const newTrade = await openTrade(tradeOrder);
 
@@ -200,12 +206,18 @@ async function runBot() {
             }
           }
         } else {
+          // XXXXXXXX
+          // XXX Need to detect a successful trade here so I
+          // can automatically post to Firebase without needing
+          // to include it in every bots manage function.
+          // XXXXXXXX
           const updatedTrade = await subaccount.manage(trade);
 
           const openTradeIndex = openTrades.findIndex(
             (item) => item.subaccount === updatedTrade.subaccount,
           );
 
+          // Stop observing trade if it's closed otherwise update it.
           if (updatedTrade.status === 'closed') {
             openTrades.splice(openTradeIndex, 1);
           } else {
@@ -213,9 +225,7 @@ async function runBot() {
           }
         }
       }
-      console.log('TimeoutStart');
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL));
-      console.log('TimeoutOver');
     } catch (error) {
       poll = false;
       // await criticalErrorCleanup(trade).catch((error) => {
