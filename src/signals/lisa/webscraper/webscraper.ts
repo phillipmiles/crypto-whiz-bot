@@ -1,5 +1,6 @@
-import puppeteer from 'puppeteer';
+import puppeteer, { Page } from 'puppeteer';
 import { subStringBetween } from '../../../utils/string';
+import { Signal } from '../../signal';
 
 interface ArticleScrap {
   title: string;
@@ -7,19 +8,6 @@ interface ArticleScrap {
   date: string;
   time: string;
   content: string;
-}
-
-interface Signal {
-  id: string;
-  coin: string;
-  author: string;
-  timestamp: number;
-  buyzone: {
-    lowerbound: number;
-    upperbound: number;
-  };
-  stopLossPrice: number;
-  targets: number[];
 }
 
 const COIN_STR_START_IDENTIFIER = 'TRADE SIGNAL – $';
@@ -31,8 +19,13 @@ const STOPLOSS_STR_END_IDENTIFIER = '(';
 const parseForBuyZone = (string: string) => {
   // Built and tested on https://regex101.com/r/e8i8ma/1.
   const regex = /(BUYZONE|BUY ZONE|BUY)\s+\$?\s*(\d+)(.(\d+))?\s*(-|–)\s*\$?\s*(\d+)(.(\d+))?/g;
+  const match = string.match(regex);
 
-  console.log(string.match(regex));
+  if (!match || match.length === 0) return;
+
+  // Split match at - or em dash
+  // Parse ints.
+  // return buyzones object.
 };
 const parseForCoin = (str: string): string | undefined => {
   return subStringBetween(
@@ -91,7 +84,7 @@ const parseLisaScrapForSignalData = (
   return signals;
 };
 
-export const scrapLisa = async (): Promise<void> => {
+const loginToPage = async (page: Page): Promise<any> => {
   const login = process.env.LISA_LOGIN;
   const password = process.env.LISA_PASSWORD;
 
@@ -99,13 +92,7 @@ export const scrapLisa = async (): Promise<void> => {
     return;
   }
 
-  const browser = await puppeteer.launch();
-
-  const page = await browser.newPage();
-
   await page.goto('https://gettingstartedincrypto.com/wp-login.php');
-
-  // console.log(await page.content());
 
   await page.click('input[id=user_login]');
   await page.waitForTimeout(1000);
@@ -119,16 +106,10 @@ export const scrapLisa = async (): Promise<void> => {
     page.waitForNavigation(), // The promise resolves after navigation has finished
     page.click('input[id=wp-submit]'), // Clicking the link will indirectly cause a navigation
   ]);
+  return page;
+};
 
-  // await page.waitForTimeout(1000);
-
-  await page.goto('https://gettingstartedincrypto.com/signals/');
-
-  // const feedHandle = await page.$('elementor-posts-container');
-  // if (!feedHandle) {
-  //   return;
-  // }
-
+export const scrapPageContentForSignals = async (page: Page): Promise<any> => {
   const articleHandlers = await page.$$('article');
   const articles = [];
 
@@ -163,40 +144,22 @@ export const scrapLisa = async (): Promise<void> => {
     });
   }
 
-  // articleHandlers.map((articleHandler) => {
-  //   articleHandler.$$eval();
-  // });
+  return articles;
+};
 
-  // // const articles = await page.$$eval('article', (articles) => {
-  // //   return articles.map((article) => article);
-  // // });
+export const scrapLisa = async (): Promise<void> => {
+  const browser = await puppeteer.launch();
 
-  // const articles = await page.$$eval('article', (articles) => {
-  //   return articles.map((article) => {
-  //     return {
-  //       title: article.$('.elementor-post__title').textContent,
-  //     };
-  //   });
-  // });
+  const page = await browser.newPage();
 
-  // articles.map((articleEl) => {
-  //   return articleEl.$('.elementor-post__title').innerText;
-  // });
+  await loginToPage(page);
+  await page.goto('https://gettingstartedincrypto.com/signals/');
 
-  console.log(articles);
-  // const divCount = await page.$$eval('article', (articles) => {
-  //   console.log(articles);
-  //   return articles.length;
-  // });
-  // console.log(divCount);
-  // const derp = await page.$$eval('article', (article) => {
-  //   console.log(article);
-  // });
+  const scrapedSignals = await scrapPageContentForSignals(page);
 
-  // console.log(derp);
+  console.log(scrapedSignals);
 
-  await page.screenshot({ path: 'screenshot.png' });
   await browser.close();
-  const signals = parseLisaScrapForSignalData(articles);
+  const signals = parseLisaScrapForSignalData(scrapedSignals);
   console.log(signals);
 };

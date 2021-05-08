@@ -1,54 +1,23 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
+import { scrapPageContentForSignals } from './webscraper';
 
-const scrapLisa = async () => {
+const scrapSite = async (url) => {
   const browser = await puppeteer.launch();
   const page = await browser.newPage();
 
-  await page.goto(`file:${path.join(__dirname, 'site.html')}`);
+  await page.goto(url);
 
-  const articleHandlers = await page.$$('article');
-  const articles = [];
+  const scrapedSignals = await scrapPageContentForSignals(page);
 
-  for await (const articleHandler of articleHandlers) {
-    const title = await articleHandler.$eval(
-      '.elementor-post__title',
-      (el) => el.textContent,
-    );
-    const author = await articleHandler.$eval(
-      '.elementor-post-author',
-      (el) => el.textContent,
-    );
-    const date = await articleHandler.$eval(
-      '.elementor-post-date',
-      (el) => el.textContent,
-    );
-    const time = await articleHandler.$eval(
-      '.elementor-post-time',
-      (el) => el.textContent,
-    );
-    const content = await articleHandler.$eval(
-      '.elementor-post__text',
-      (el) => el.textContent,
-    );
-
-    articles.push({
-      title: title ? title.trim() : '',
-      author: author ? author.trim() : '',
-      date: date ? date.trim() : '',
-      time: time ? time.trim() : '',
-      content: content ? content.trim().replace(/\t/g, '') : '',
-    });
-  }
-
-  await page.screenshot({ path: 'screenshot.png' });
-  await browser.close();
-  return articles;
+  return scrapedSignals;
 };
 
 describe('webscraper', () => {
   test('webscaper 1', async () => {
-    const articles = await scrapLisa();
+    const articles = await scrapSite(
+      `file:${path.join(__dirname, 'site.html')}`,
+    );
     console.log(articles);
     expect('CODE123').toBe('CODE123');
   });
