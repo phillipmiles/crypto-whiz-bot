@@ -1,2 +1,0 @@
-"use strict";
-// XXXX NEED TO HANDLE NOT LOGGED IN ERROR
