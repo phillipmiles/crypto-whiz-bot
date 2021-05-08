@@ -47,7 +47,7 @@ const parseForStopLoss = (str: string): number | undefined => {
   return parseFloat(stopLossStr);
 };
 
-const parseLisaScrapForSignalData = (
+export const parseLisaScrapForSignalData = (
   scrapedArticles: ArticleScrap[],
 ): Signal[] => {
   const signals: Signal[] = [];

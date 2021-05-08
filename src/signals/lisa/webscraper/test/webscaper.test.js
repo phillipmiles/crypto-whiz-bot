@@ -1,6 +1,9 @@
 import puppeteer from 'puppeteer';
 import path from 'path';
-import { scrapPageContentForSignals } from './webscraper';
+import {
+  scrapPageContentForSignals,
+  parseLisaScrapForSignalData,
+} from '../webscraper';
 
 const scrapSite = async (url) => {
   const browser = await puppeteer.launch();
@@ -10,14 +13,17 @@ const scrapSite = async (url) => {
 
   const scrapedSignals = await scrapPageContentForSignals(page);
 
+  await browser.close();
+
   return scrapedSignals;
 };
 
 describe('webscraper', () => {
   test('webscaper 1', async () => {
-    const articles = await scrapSite(
+    const scrapedArticles = await scrapSite(
       `file:${path.join(__dirname, 'site.html')}`,
     );
+    const articles = parseLisaScrapForSignalData(scrapedArticles);
     console.log(articles);
     expect('CODE123').toBe('CODE123');
   });
