@@ -1,5 +1,8 @@
 # crypto-whiz-bot
  
+# Babel
+Babel is only used so far for transpiling TS files for Jest. For running the actual program, typescript itself handles the transpiling.
+
 // XXXX
 // STARTED TEST WITH
 // Total collateral - 9.66
