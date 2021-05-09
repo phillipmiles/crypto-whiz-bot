@@ -18,17 +18,19 @@ const COIN_STR_END_IDENTIFIER = ' – ';
 const STOPLOSS_STR_START_IDENTIFIER = 'STOP LOSS $';
 const STOPLOSS_STR_END_IDENTIFIER = '(';
 
-const parseForTargets = (string: string) => {
+const parseForTargets = (string: string): number[] | undefined => {
   const targetsLineRegex = /TARGET\s+\d\s*((–|-)\s*)?\$?\s*(\d+)(.(\d+))?/g;
 
   const lineMatches = string.match(targetsLineRegex);
   if (!lineMatches || lineMatches.length === 0) return;
 
-  const targets = lineMatches.map((line) => {
+  const targets: number[] = [];
+
+  lineMatches.forEach((line) => {
     const targetString = line.match(floatRegex);
     if (!targetString || targetString.length === -1) return;
     // Use index 1 not 0 as we want to skip the target number and get to the price.
-    return parseFloat(targetString[1]);
+    targets.push(parseFloat(targetString[1]));
   });
 
   if (targets.length < 1) return;
@@ -97,6 +99,8 @@ export const parseLisaScrapForSignalData = (
   scrapedArticles.forEach((scrapedArticle) => {
     const { date, content } = scrapedArticle;
     const timestamp = new Date(date).getTime();
+    // Lisa signals are all long signals.
+    const side = 'buy';
 
     const coin = parseForCoin(content);
     if (!coin) return;
@@ -111,9 +115,14 @@ export const parseLisaScrapForSignalData = (
     const targets = parseForTargets(content);
 
     if (!targets) return;
+    // Validates that found targets are above buy price if it's a long signal, or below
     const targetsAreValid = targets.reduce(
       (accumulator, target) =>
-        accumulator && !!target && target > buyzone.upperbound,
+        accumulator &&
+        !!target &&
+        (side === 'buy'
+          ? target > buyzone.upperbound
+          : target < buyzone.upperbound),
       true,
     );
 
@@ -121,14 +130,16 @@ export const parseLisaScrapForSignalData = (
 
     const signal = {
       // ID makes assumption that an author will never create multiple signals
-      // for the same coin on the same day.
+      // for the same coin on the same day. If assumption is wrong then the only
+      // result is that the latest signal isn't recorded. Big whoop.
       id: `LisaNEdwards-BTC-${timestamp}`,
       coin: coin,
       author: 'LisaNEdwards',
+      side: side,
       timestamp: timestamp,
-      buyzone: buyzone,
+      entryPrice: buyzone,
       stopLossPrice: stopLoss,
-      targets: [39.45, 40.9, 44.8, 48.33],
+      targets: targets,
     };
     signals.push(signal);
   });

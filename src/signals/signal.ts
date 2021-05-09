@@ -3,10 +3,14 @@ export interface Signal {
   coin: string;
   author: string;
   timestamp: number;
-  buyzone: {
+  side: string;
+  entryPrice: {
     lowerbound: number;
     upperbound: number;
   };
-  stopLossPrice: number;
-  targets: number[];
+  market?: string;
+  exchange?: string;
+  strategy?: string;
+  stopLossPrice?: number;
+  targets?: number[];
 }
