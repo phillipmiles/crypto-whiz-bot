@@ -18,15 +18,38 @@ const STOPLOSS_STR_END_IDENTIFIER = '(';
 
 const parseForBuyZone = (string: string) => {
   // Built and tested on https://regex101.com/r/e8i8ma/1.
-  const regex = /(BUYZONE|BUY ZONE|BUY)\s+\$?\s*(\d+)(.(\d+))?\s*(-|–)\s*\$?\s*(\d+)(.(\d+))?/g;
-  const match = string.match(regex);
+  const buyzoneLineRegex = /(BUYZONE|BUY ZONE|BUY)\s+\$?\s*(\d+)(.(\d+))?\s*(-|–)\s*\$?\s*(\d+)(.(\d+))?/g;
+  const splitDelimRegex = /(-|–)/g;
+  const floatRegex = /(\d+)(.(\d+))?/g;
 
-  if (!match || match.length === 0) return;
+  const lineMatch = string.match(buyzoneLineRegex);
+  if (!lineMatch || lineMatch.length === 0) return;
 
-  // Split match at - or em dash
-  // Parse ints.
-  // return buyzones object.
+  const buyzoneSplitIndex = lineMatch[0].search(splitDelimRegex);
+
+  if (buyzoneSplitIndex === -1) return;
+
+  const lowBuyzoneString = lineMatch[0].slice(0, buyzoneSplitIndex);
+  const highBuyzoneString = lineMatch[0].slice(buyzoneSplitIndex);
+
+  if (!lowBuyzoneString || !highBuyzoneString) return;
+
+  const lowBuyzonePrice = lowBuyzoneString.match(floatRegex);
+  const highBuyzonePrice = highBuyzoneString.match(floatRegex);
+
+  if (!lowBuyzonePrice || !highBuyzonePrice) return;
+
+  const lowFloat = parseFloat(lowBuyzonePrice[0]);
+  const highFloat = parseFloat(highBuyzonePrice[0]);
+
+  if (lowFloat <= 0 && highFloat <= 0) return;
+  if (lowFloat >= highFloat) return;
+  return {
+    lowerbound: lowFloat,
+    upperbound: highFloat,
+  };
 };
+
 const parseForCoin = (str: string): string | undefined => {
   return subStringBetween(
     str,
@@ -62,7 +85,9 @@ export const parseLisaScrapForSignalData = (
     const stopLoss = parseForStopLoss(content);
     if (!stopLoss) return;
 
-    parseForBuyZone(content);
+    const buyzone = parseForBuyZone(content);
+
+    if (!buyzone) return;
 
     const signal = {
       // ID makes assumption that an author will never create multiple signals
@@ -71,10 +96,7 @@ export const parseLisaScrapForSignalData = (
       coin: coin,
       author: 'LisaNEdwards',
       timestamp: timestamp,
-      buyzone: {
-        lowerbound: 34.1,
-        upperbound: 36.0,
-      },
+      buyzone: buyzone,
       stopLossPrice: stopLoss,
       targets: [39.45, 40.9, 44.8, 48.33],
     };
