@@ -1,4 +1,4 @@
-import { secondsTo } from '../../utils/time';
+import { toSeconds } from '../../utils/time';
 import { calculateEMA } from '../../metrics';
 import api from '../../api';
 import config from './config';
@@ -62,7 +62,7 @@ const evaluateMarket = async (
 
   const emaCross = await hasEMACrossedInMarket(
     marketId,
-    secondsTo(15, 'minutes'),
+    toSeconds(15, 'minutes'),
   );
 
   if (emaCross) {

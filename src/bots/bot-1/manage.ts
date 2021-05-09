@@ -1,5 +1,5 @@
 import { Trade } from '../../Trade';
-import { secondsTo } from '../../utils/time';
+import { toSeconds } from '../../utils/time';
 import {
   hasOrderSuccessfullyFilled,
   calcStoplossTriggerPrice,
@@ -127,7 +127,7 @@ const mange = async (trade: Trade): Promise<Trade> => {
     if (openStoplossOrder && openStoplossOrder.status === 'open') {
       const historicalPrices = await api.getHistoricalPrices(
         trade.marketId,
-        secondsTo(15, 'minutes'),
+        toSeconds(15, 'minutes'),
       );
       // XXXX!!!!! if(hasNewCandleStarted) {}
       if (

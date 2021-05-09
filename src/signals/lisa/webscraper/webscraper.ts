@@ -12,9 +12,6 @@ interface ArticleScrap {
   content: string;
 }
 
-const COIN_STR_START_IDENTIFIER = 'TRADE SIGNAL – $';
-const COIN_STR_END_IDENTIFIER = ' – ';
-
 const STOPLOSS_STR_START_IDENTIFIER = 'STOP LOSS $';
 const STOPLOSS_STR_END_IDENTIFIER = '(';
 
@@ -44,51 +41,51 @@ const parseForBuyZone = (string: string) => {
   const splitDelimRegex = /(-|–)/g;
 
   const lineMatch = string.match(buyzoneLineRegex);
+
   if (!lineMatch || lineMatch.length === 0) return;
 
   const buyzoneSplitIndex = lineMatch[0].search(splitDelimRegex);
 
   if (buyzoneSplitIndex === -1) return;
 
-  const lowBuyzoneString = lineMatch[0].slice(0, buyzoneSplitIndex);
-  const highBuyzoneString = lineMatch[0].slice(buyzoneSplitIndex);
+  const buyzone1String = lineMatch[0].slice(0, buyzoneSplitIndex);
+  const buyzone2String = lineMatch[0].slice(buyzoneSplitIndex);
 
-  if (!lowBuyzoneString || !highBuyzoneString) return;
+  if (!buyzone1String || !buyzone2String) return;
 
-  const lowBuyzonePrice = lowBuyzoneString.match(floatRegex);
-  const highBuyzonePrice = highBuyzoneString.match(floatRegex);
+  const buyzone1Price = buyzone1String.match(floatRegex);
+  const buyzone2Price = buyzone2String.match(floatRegex);
 
-  if (!lowBuyzonePrice || !highBuyzonePrice) return;
+  if (!buyzone1Price || !buyzone2Price) return;
 
-  const lowFloat = parseFloat(lowBuyzonePrice[0]);
-  const highFloat = parseFloat(highBuyzonePrice[0]);
+  const buyzone1Float = parseFloat(buyzone1Price[0]);
+  const buyzone2Float = parseFloat(buyzone2Price[0]);
 
-  if (lowFloat <= 0 && highFloat <= 0) return;
-  if (lowFloat >= highFloat) return;
   return {
-    lowerbound: lowFloat,
-    upperbound: highFloat,
+    lowerbound: buyzone1Float > buyzone2Float ? buyzone2Float : buyzone1Float,
+    upperbound: buyzone1Float > buyzone2Float ? buyzone1Float : buyzone2Float,
   };
 };
 
 const parseForCoin = (str: string): string | undefined => {
-  return subStringBetween(
-    str,
-    COIN_STR_START_IDENTIFIER,
-    COIN_STR_END_IDENTIFIER,
-  );
+  const coinLineRegex = /TRADE\s+SIGNAL\s+(-|–)\s+\$[A-Z]{3,6}/g;
+  const lineMatch = str.match(coinLineRegex);
+  if (!lineMatch || lineMatch.length === 0) return;
+
+  const coinStartIndex = lineMatch[0].indexOf('$');
+
+  return lineMatch[0].substring(coinStartIndex + 1);
 };
 
 const parseForStopLoss = (str: string): number | undefined => {
-  const stopLossStr = subStringBetween(
-    str,
-    STOPLOSS_STR_START_IDENTIFIER,
-    STOPLOSS_STR_END_IDENTIFIER,
-  );
+  const stopLossLineRegex = /STOP\s*LOSS\s*\$\s*(\d+)(.(\d+))?/g;
+  const lineMatch = str.match(stopLossLineRegex);
+  if (!lineMatch || lineMatch.length === 0) return;
 
-  if (!stopLossStr || stopLossStr.length > 10) return;
+  const stopLossStartIndex = lineMatch[0].indexOf('$');
+  const stopLoss = lineMatch[0].substring(stopLossStartIndex + 1);
 
-  return parseFloat(stopLossStr);
+  return parseFloat(stopLoss);
 };
 
 export const parseLisaScrapForSignalData = (
@@ -111,10 +108,11 @@ export const parseLisaScrapForSignalData = (
     const buyzone = parseForBuyZone(content);
 
     if (!buyzone) return;
-
+    console.log(buyzone);
     const targets = parseForTargets(content);
 
     if (!targets) return;
+    console.log(targets);
     // Validates that found targets are above buy price if it's a long signal, or below
     const targetsAreValid = targets.reduce(
       (accumulator, target) =>
@@ -210,7 +208,7 @@ export const scrapPageContentForSignals = async (page: Page): Promise<any> => {
   return articles;
 };
 
-export const scrapLisa = async (): Promise<void> => {
+export const scrapLisaForSignals = async (): Promise<Signal[]> => {
   const browser = await puppeteer.launch();
 
   const page = await browser.newPage();
@@ -219,10 +217,8 @@ export const scrapLisa = async (): Promise<void> => {
   await page.goto('https://gettingstartedincrypto.com/signals/');
 
   const scrapedSignals = await scrapPageContentForSignals(page);
-
-  console.log(scrapedSignals);
-
   await browser.close();
+  console.log(scrapedSignals);
   const signals = parseLisaScrapForSignalData(scrapedSignals);
-  console.log(signals);
+  return signals;
 };

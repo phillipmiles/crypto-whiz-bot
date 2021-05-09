@@ -7,7 +7,7 @@ import bots from './bots/bots';
 
 // Sentry error tracking
 import * as Sentry from '@sentry/node';
-import { millisecondsTo } from './utils/time';
+import { toMilliseconds } from './utils/time';
 import { Market } from './market';
 // Don't know if I need Tracing!?!?!
 // import * as Tracing from '@sentry/tracing';
@@ -246,7 +246,7 @@ async function runBot() {
     console.log(`=== Polling FTX | ${new Date().toISOString()} ===`);
     try {
       if (
-        marketDataLastUpdatedAt + millisecondsTo(1, 'minutes') <
+        marketDataLastUpdatedAt + toMilliseconds(1, 'minutes') <
         new Date().getTime()
       ) {
         console.log('Updating local market data.');
@@ -274,7 +274,7 @@ async function runBot() {
         if (
           !subaccountsData[subaccount.name] ||
           subaccountsData[subaccount.name].lastUpdatedAt +
-            millisecondsTo(1, 'minutes') <
+            toMilliseconds(1, 'minutes') <
             new Date().getTime()
         ) {
           console.log(
