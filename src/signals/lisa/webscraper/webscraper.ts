@@ -2,6 +2,8 @@ import puppeteer, { Page } from 'puppeteer';
 import { subStringBetween } from '../../../utils/string';
 import { Signal } from '../../signal';
 
+const floatRegex = /(\d+)(.(\d+))?/g;
+
 interface ArticleScrap {
   title: string;
   author: string;
@@ -16,11 +18,28 @@ const COIN_STR_END_IDENTIFIER = ' – ';
 const STOPLOSS_STR_START_IDENTIFIER = 'STOP LOSS $';
 const STOPLOSS_STR_END_IDENTIFIER = '(';
 
+const parseForTargets = (string: string) => {
+  const targetsLineRegex = /TARGET\s+\d\s*((–|-)\s*)?\$?\s*(\d+)(.(\d+))?/g;
+
+  const lineMatches = string.match(targetsLineRegex);
+  if (!lineMatches || lineMatches.length === 0) return;
+
+  const targets = lineMatches.map((line) => {
+    const targetString = line.match(floatRegex);
+    if (!targetString || targetString.length === -1) return;
+    // Use index 1 not 0 as we want to skip the target number and get to the price.
+    return parseFloat(targetString[1]);
+  });
+
+  if (targets.length < 1) return;
+
+  return targets;
+};
+
 const parseForBuyZone = (string: string) => {
   // Built and tested on https://regex101.com/r/e8i8ma/1.
   const buyzoneLineRegex = /(BUYZONE|BUY ZONE|BUY)\s+\$?\s*(\d+)(.(\d+))?\s*(-|–)\s*\$?\s*(\d+)(.(\d+))?/g;
   const splitDelimRegex = /(-|–)/g;
-  const floatRegex = /(\d+)(.(\d+))?/g;
 
   const lineMatch = string.match(buyzoneLineRegex);
   if (!lineMatch || lineMatch.length === 0) return;
@@ -88,6 +107,17 @@ export const parseLisaScrapForSignalData = (
     const buyzone = parseForBuyZone(content);
 
     if (!buyzone) return;
+
+    const targets = parseForTargets(content);
+
+    if (!targets) return;
+    const targetsAreValid = targets.reduce(
+      (accumulator, target) =>
+        accumulator && !!target && target > buyzone.upperbound,
+      true,
+    );
+
+    if (!targetsAreValid) return;
 
     const signal = {
       // ID makes assumption that an author will never create multiple signals
