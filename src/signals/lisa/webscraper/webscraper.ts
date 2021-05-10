@@ -110,11 +110,12 @@ export const parseLisaScrapForSignalData = (
   scrapedArticles.forEach((scrapedArticle) => {
     const { date, time, content } = scrapedArticle;
     const timestamp = defineSignalTimestamp(date, time);
+    const datestamp = new Date(date).getTime();
 
     // Prevent signals found older then 1 hour ago from being returned.
     // We can't generate an accurate time of signal down to the minute which
     // makes the timestamp too unreliable for using.
-    if (timestamp <= new Date().getTime() - toMilliseconds(1, 'hours')) return;
+    // if (timestamp <= new Date().getTime() - toMilliseconds(1, 'hours')) return;
 
     // Lisa signals are all long signals.
     const side = 'buy';
@@ -146,13 +147,15 @@ export const parseLisaScrapForSignalData = (
 
     if (!targetsAreValid) return;
 
+    const author = 'LisaNEdwards';
+
     const signal = {
       // ID makes assumption that an author will never create multiple signals
       // for the same coin on the same day. If assumption is wrong then the only
       // result is that the latest signal isn't recorded. Big whoop.
-      id: `LisaNEdwards-BTC-${timestamp}`,
+      id: `${author}-${coin}-${datestamp}`,
       coin: coin,
-      author: 'LisaNEdwards',
+      author: author,
       side: side,
       timestamp: timestamp,
       entryPrice: buyzone,
