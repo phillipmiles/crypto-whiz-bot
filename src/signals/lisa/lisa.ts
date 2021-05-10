@@ -2,7 +2,6 @@ import * as dotenv from 'dotenv';
 import { toMilliseconds, toSeconds } from '../../utils/time';
 dotenv.config();
 import { scrapLisaForSignals } from './webscraper/webscraper';
-import firebase from '../../services/firebase';
 import { signInWithEmailAndPassword } from '../../db/firebase/api/auth';
 import { getSignals } from '../../db/firebase/api/signals';
 import puppeteer from 'puppeteer';
@@ -38,16 +37,16 @@ const pollForSignals = async (debug: boolean) => {
   while (poll) {
     const signals = await scrapLisaForSignals(page);
 
-    // Put into da firebase
+    // Put into da firebase if not already in it.
     if (debug) {
       log(signals);
     }
 
+    // Set a timeout betwee 3 and 6 minutes to make this look less bot like.
     const interval =
       Math.floor(Math.random() * toMilliseconds(3, 'minutes')) +
       toMilliseconds(3, 'minutes');
 
-    console.log('interval (seconds)', toSeconds(interval, 'milliseconds'));
     await new Promise((resolve) => setTimeout(resolve, interval));
   }
   await browser.close();

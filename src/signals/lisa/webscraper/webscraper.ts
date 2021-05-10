@@ -1,6 +1,9 @@
 import puppeteer, { Page } from 'puppeteer';
 import { subStringBetween } from '../../../utils/string';
-import { convertRelativeTimeStringToMilliseconds } from '../../../utils/time';
+import {
+  convertRelativeTimeStringToMilliseconds,
+  toMilliseconds,
+} from '../../../utils/time';
 import { Signal } from '../../signal';
 
 const floatRegex = /(\d+)(.(\d+))?/g;
@@ -107,6 +110,11 @@ export const parseLisaScrapForSignalData = (
   scrapedArticles.forEach((scrapedArticle) => {
     const { date, time, content } = scrapedArticle;
     const timestamp = defineSignalTimestamp(date, time);
+
+    // Prevent signals found older then 1 hour ago from being returned.
+    // We can't generate an accurate time of signal down to the minute which
+    // makes the timestamp too unreliable for using.
+    if (timestamp < new Date().getTime() - toMilliseconds(1, 'hours')) return;
 
     // Lisa signals are all long signals.
     const side = 'buy';
