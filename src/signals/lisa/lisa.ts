@@ -22,13 +22,10 @@ const saveSignals = async (signals: Signal[]) => {
 
   const response = await getSignals();
   const savedSignals: any[] = [];
+
   response.forEach((doc) => {
-    savedSignals.push({
-      id: doc.id,
-      ...doc.data(),
-    });
+    savedSignals.push(doc.data());
   });
-  // }
 
   // XXX WARNING: This operation gets more expensive the larger the data set.
   // Can't find a good way to add only if doesn't exist though. This is important
@@ -53,16 +50,26 @@ const saveSignals = async (signals: Signal[]) => {
 const pollForSignals = async (debug: boolean) => {
   const poll = true;
 
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-
   while (poll) {
+    // Shifted browser to open and close on each loop as there appears to be
+    // a time limit that the browser can run for. Around 15 to 30 minutes
+    // before it gets automatically closed.
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+
     const signals = await scrapLisaForSignals(page);
 
     // Put into da firebase if not already in it.
     if (debug) {
       log(signals);
     }
+
+    // 3 hours ago
+    // now 19:13
+    // 1620627225334 16:13
+    // 1620627535218 16:18
+    // 1620627762368 16:22 (3 hours ago); - assume it was made at 4:30 or 13:30
+    // 1620624865827 15:34:25 ('4 hours ago');
 
     if (signals && signals.length > 0) {
       // Add signals to db.
@@ -73,10 +80,9 @@ const pollForSignals = async (debug: boolean) => {
     const interval =
       Math.floor(Math.random() * toMilliseconds(3, 'minutes')) +
       toMilliseconds(3, 'minutes');
-
+    await browser.close();
     await new Promise((resolve) => setTimeout(resolve, interval));
   }
-  await browser.close();
 };
 
 const debug = true;
