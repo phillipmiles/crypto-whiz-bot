@@ -1,5 +1,5 @@
 import * as dotenv from 'dotenv';
-import { toMilliseconds, toSeconds } from '../../utils/time';
+import { toMilliseconds } from '../../utils/time';
 dotenv.config();
 import { scrapLisaForSignals } from './webscraper/webscraper';
 import { signInWithEmailAndPassword } from '../../db/firebase/api/auth';
@@ -36,11 +36,10 @@ const saveSignals = async (signals: Signal[]) => {
     (signal) =>
       !savedSignals.find((savedSignal) => signal.id === savedSignal.id),
   );
-  // Get a new write batch
-  const batch = db.batch();
 
+  // Batch commit.
+  const batch = db.batch();
   filteredSignals.forEach((doc) => {
-    // Need to prevent override
     const docRef = db.collection('signals').doc(doc.id);
     batch.set(docRef, doc);
   });

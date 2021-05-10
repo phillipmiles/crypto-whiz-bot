@@ -180,9 +180,7 @@ export const loginToPage = async (page: Page): Promise<any> => {
   await page.click('input[id=user_pass]');
   await page.waitForTimeout(1000);
   await page.keyboard.type(password);
-  // await page.click('input[id=wp-submit]');
-  // await page.waitForNavigation();
-  const [response] = await Promise.all([
+  await Promise.all([
     page.waitForNavigation(), // The promise resolves after navigation has finished
     page.click('input[id=wp-submit]'), // Clicking the link will indirectly cause a navigation
   ]);
