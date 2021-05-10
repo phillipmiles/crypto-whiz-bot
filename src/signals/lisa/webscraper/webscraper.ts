@@ -62,8 +62,8 @@ const parseForBuyZone = (string: string) => {
   const buyzone2Float = parseFloat(buyzone2Price[0]);
 
   return {
-    lowerbound: buyzone1Float > buyzone2Float ? buyzone2Float : buyzone1Float,
-    upperbound: buyzone1Float > buyzone2Float ? buyzone1Float : buyzone2Float,
+    low: buyzone1Float > buyzone2Float ? buyzone2Float : buyzone1Float,
+    high: buyzone1Float > buyzone2Float ? buyzone1Float : buyzone2Float,
   };
 };
 
@@ -108,11 +108,6 @@ export const parseLisaScrapForSignalData = (
     const timestamp = defineSignalTimestamp(date, time);
     const datestamp = new Date(date).getTime();
 
-    // Prevent signals found older then 1 hour ago from being returned.
-    // We can't generate an accurate time of signal down to the minute which
-    // makes the timestamp too unreliable for using.
-    if (timestamp <= new Date().getTime() - toMilliseconds(1, 'hours')) return;
-
     // Lisa signals are all long signals.
     const side = 'buy';
 
@@ -135,9 +130,7 @@ export const parseLisaScrapForSignalData = (
       (accumulator, target) =>
         accumulator &&
         !!target &&
-        (side === 'buy'
-          ? target > buyzone.upperbound
-          : target < buyzone.upperbound),
+        (side === 'buy' ? target > buyzone.high : target < buyzone.high),
       true,
     );
 
@@ -238,5 +231,13 @@ export const scrapLisaForSignals = async (page: Page): Promise<Signal[]> => {
   const scrapedSignals = await scrapPageContentForSignals(page);
   const signals = parseLisaScrapForSignalData(scrapedSignals);
 
-  return signals;
+  // Prevent signals found older then 1 hour ago from being returned.
+  // We can't generate an accurate time of signal down to the minute which
+  // makes the timestamp too unreliable for using.
+  const filteredSignals = signals.filter(
+    (signal) =>
+      signal.timestamp > new Date().getTime() - toMilliseconds(1, 'hours'),
+  );
+
+  return filteredSignals;
 };

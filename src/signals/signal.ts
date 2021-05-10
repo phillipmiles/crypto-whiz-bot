@@ -5,8 +5,8 @@ export interface Signal {
   timestamp: number;
   side: string;
   entryPrice: {
-    lowerbound: number;
-    upperbound: number;
+    low: number;
+    high: number;
   };
   market?: string;
   exchange?: string;
