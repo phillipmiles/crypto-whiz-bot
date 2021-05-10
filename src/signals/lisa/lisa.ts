@@ -20,10 +20,10 @@ const pollForSignals = async (debug: boolean) => {
     );
 
     const response = await getSignals();
-    const signals = [];
+    const savedSignals = [];
     response.forEach((doc) => {
       console.log(doc.data());
-      signals.push({
+      savedSignals.push({
         id: doc.id,
         ...doc.data(),
       });
@@ -42,7 +42,7 @@ const pollForSignals = async (debug: boolean) => {
       log(signals);
     }
 
-    // Set a timeout betwee 3 and 6 minutes to make this look less bot like.
+    // Set a timeout between 3 and 6 minutes to make this look less bot like.
     const interval =
       Math.floor(Math.random() * toMilliseconds(3, 'minutes')) +
       toMilliseconds(3, 'minutes');

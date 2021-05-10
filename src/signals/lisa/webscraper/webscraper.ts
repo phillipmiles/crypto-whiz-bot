@@ -114,7 +114,7 @@ export const parseLisaScrapForSignalData = (
     // Prevent signals found older then 1 hour ago from being returned.
     // We can't generate an accurate time of signal down to the minute which
     // makes the timestamp too unreliable for using.
-    if (timestamp < new Date().getTime() - toMilliseconds(1, 'hours')) return;
+    if (timestamp <= new Date().getTime() - toMilliseconds(1, 'hours')) return;
 
     // Lisa signals are all long signals.
     const side = 'buy';
