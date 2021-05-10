@@ -1,5 +1,6 @@
 import puppeteer, { Page } from 'puppeteer';
 import { subStringBetween } from '../../../utils/string';
+import { convertRelativeTimeStringToMilliseconds } from '../../../utils/time';
 import { Signal } from '../../signal';
 
 const floatRegex = /(\d+)(.(\d+))?/g;
@@ -88,14 +89,25 @@ const parseForStopLoss = (str: string): number | undefined => {
   return parseFloat(stopLoss);
 };
 
+const defineSignalTimestamp = (date: string, time: string): number => {
+  const relativeTimeAgo = convertRelativeTimeStringToMilliseconds(time);
+
+  if (relativeTimeAgo) {
+    return new Date().getTime() - relativeTimeAgo;
+  } else {
+    return new Date(date).getTime();
+  }
+};
+
 export const parseLisaScrapForSignalData = (
   scrapedArticles: ArticleScrap[],
 ): Signal[] => {
   const signals: Signal[] = [];
 
   scrapedArticles.forEach((scrapedArticle) => {
-    const { date, content } = scrapedArticle;
-    const timestamp = new Date(date).getTime();
+    const { date, time, content } = scrapedArticle;
+    const timestamp = defineSignalTimestamp(date, time);
+
     // Lisa signals are all long signals.
     const side = 'buy';
 
@@ -108,11 +120,11 @@ export const parseLisaScrapForSignalData = (
     const buyzone = parseForBuyZone(content);
 
     if (!buyzone) return;
-    console.log(buyzone);
+
     const targets = parseForTargets(content);
 
     if (!targets) return;
-    console.log(targets);
+
     // Validates that found targets are above buy price if it's a long signal, or below
     const targetsAreValid = targets.reduce(
       (accumulator, target) =>
@@ -218,7 +230,8 @@ export const scrapLisaForSignals = async (): Promise<Signal[]> => {
 
   const scrapedSignals = await scrapPageContentForSignals(page);
   await browser.close();
-  console.log(scrapedSignals);
+
   const signals = parseLisaScrapForSignalData(scrapedSignals);
+
   return signals;
 };
