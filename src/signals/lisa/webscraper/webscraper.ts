@@ -157,7 +157,7 @@ export const parseLisaScrapForSignalData = (
   return signals;
 };
 
-const loginToPage = async (page: Page): Promise<any> => {
+export const loginToPage = async (page: Page): Promise<any> => {
   const login = process.env.LISA_LOGIN;
   const password = process.env.LISA_PASSWORD;
 
@@ -220,17 +220,17 @@ export const scrapPageContentForSignals = async (page: Page): Promise<any> => {
   return articles;
 };
 
-export const scrapLisaForSignals = async (): Promise<Signal[]> => {
-  const browser = await puppeteer.launch();
-
-  const page = await browser.newPage();
-
-  await loginToPage(page);
+export const scrapLisaForSignals = async (page: Page): Promise<Signal[]> => {
+  // await loginToPage(page);
   await page.goto('https://gettingstartedincrypto.com/signals/');
 
+  // Checks if we can see articles on the page. If not, should mean
+  // that we are unauthenticated.
+  if (!(await page.$('article'))) {
+    await loginToPage(page);
+    await page.goto('https://gettingstartedincrypto.com/signals/');
+  }
   const scrapedSignals = await scrapPageContentForSignals(page);
-  await browser.close();
-
   const signals = parseLisaScrapForSignalData(scrapedSignals);
 
   return signals;
