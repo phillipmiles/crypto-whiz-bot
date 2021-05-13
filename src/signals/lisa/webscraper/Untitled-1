@@ -1,0 +1,22 @@
+
+
+
+const shouldCancelBid = (trade) => {
+  
+  // Or return after a certain time has.
+  // Or return true after price has moved too far away from bid price.
+
+  return false;
+}
+
+const loop = () => {
+  
+  if(bidNotAccepted) {
+    if(strategy.shouldCancelBid()) {
+      cancel();
+    }
+  }
+  if(bidAccepted) {
+    strategy.manageTrade();
+  }
+}

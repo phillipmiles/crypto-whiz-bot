@@ -6,6 +6,8 @@
   "scripts": {
     "start": "tsc && node dist/bot-1.js",
     "lisa": "tsc && node dist/signals/lisa/lisa.js",
+    "lisaTradeBot": "tsc && node dist/lisaTradeBot/index.js",
+    "fakeSignal": "tsc && node dist/lisaTradeBot/addFakeSignal.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },

@@ -50,36 +50,35 @@ const pollForSignals = async (debug: boolean) => {
   const poll = true;
 
   while (poll) {
-    // Shifted browser to open and close on each loop as there appears to be
-    // a time limit that the browser can run for. Around 15 to 30 minutes
-    // before it gets automatically closed.
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
+    const browser = await puppeteer.launch({ headless: true });
+    try {
+      // Shifted browser to open and close on each loop as there appears to be
+      // a time limit that the browser can run for. Around 15 to 30 minutes
+      // before it gets automatically closed.
 
-    const signals = await scrapLisaForSignals(page);
+      const page = await browser.newPage();
 
-    // Put into da firebase if not already in it.
-    if (debug) {
-      log(signals);
-    }
+      const signals = await scrapLisaForSignals(page);
 
-    // 3 hours ago
-    // now 19:13
-    // 1620627225334 16:13
-    // 1620627535218 16:18
-    // 1620627762368 16:22 (3 hours ago); - assume it was made at 4:30 or 13:30
-    // 1620624865827 15:34:25 ('4 hours ago');
+      // Put into da firebase if not already in it.
+      if (debug) {
+        log(signals);
+      }
 
-    if (signals && signals.length > 0) {
-      // Add signals to db.
-      await saveSignals(signals);
+      if (signals && signals.length > 0) {
+        // Add signals to db.
+        await saveSignals(signals);
+      }
+      await browser.close();
+    } catch (error) {
+      console.log(error);
+      await browser.close();
     }
 
     // Set a timeout between 3 and 6 minutes to make this look less bot like.
     const interval =
       Math.floor(Math.random() * toMilliseconds(3, 'minutes')) +
       toMilliseconds(3, 'minutes');
-    await browser.close();
     await new Promise((resolve) => setTimeout(resolve, interval));
   }
 };
@@ -87,3 +86,6 @@ const pollForSignals = async (debug: boolean) => {
 const debug = true;
 
 pollForSignals(debug);
+
+// - Business course Alfi - when I can
+// Sell from selfwealth to move to crypto

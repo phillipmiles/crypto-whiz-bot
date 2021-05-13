@@ -173,6 +173,7 @@ export const loginToPage = async (page: Page): Promise<any> => {
   await page.click('input[id=user_pass]');
   await page.waitForTimeout(1000);
   await page.keyboard.type(password);
+  await page.waitForTimeout(1000);
   await Promise.all([
     page.waitForNavigation(), // The promise resolves after navigation has finished
     page.click('input[id=wp-submit]'), // Clicking the link will indirectly cause a navigation
@@ -226,7 +227,9 @@ export const scrapLisaForSignals = async (page: Page): Promise<Signal[]> => {
   // that we are unauthenticated.
   if (!(await page.$('article'))) {
     await loginToPage(page);
-    await page.goto('https://gettingstartedincrypto.com/signals/');
+    await page.goto('https://gettingstartedincrypto.com/signals/', {
+      waitUntil: 'domcontentloaded', //Should stop timeout bugs
+    });
   }
   const scrapedSignals = await scrapPageContentForSignals(page);
   const signals = parseLisaScrapForSignalData(scrapedSignals);
