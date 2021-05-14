@@ -158,16 +158,24 @@ export const getBalances = async (
   );
 };
 
-export const getMarket = async (
-  authConfig: AuthConfig,
-  marketId: string,
-): Promise<Market> => {
+export const getMarket = async (marketId: string): Promise<Market> => {
   return callApi(() =>
-    axios.get(`${process.env.FTX_API_ENDPOINT}/markets/${marketId}`, {
-      headers: generateAuthApiHeaders('/wallet/balances', 'GET', authConfig),
+    axios.get(`${process.env.FTX_API_ENDPOINT}/markets/${marketId}`),
+  );
+};
+
+export const getOrder = async (
+  authConfig: AuthConfig,
+  orderId: string,
+): Promise<Order> => {
+  return callApi(() =>
+    axios.get(`${process.env.FTX_API_ENDPOINT}/orders/${orderId}`, {
+      headers: generateAuthApiHeaders(`/orders/${orderId}`, 'GET', authConfig),
     }),
   );
 };
+
+// NOT SURE IF IT SOHULD BE GET TRIGGER ORDER HISTORY OR OPEN TRIGGER ORDERS OR WHAT!!?!?!?!
 
 export const placeOrder = async (
   authConfig: AuthConfig,
@@ -193,5 +201,38 @@ export const placeTriggerOrder = async (
         payload,
       ),
     }),
+  );
+};
+
+export const cancelOrder = async (
+  authConfig: AuthConfig,
+  orderId: string,
+): Promise<Order> => {
+  return callApi(() =>
+    axios.delete(`${process.env.FTX_API_ENDPOINT}/orders/${orderId}`, {
+      headers: generateAuthApiHeaders(
+        `/orders/${orderId}`,
+        'DELETE',
+        authConfig,
+      ),
+    }),
+  );
+};
+
+export const cancelTriggerOrder = async (
+  authConfig: AuthConfig,
+  orderId: string,
+): Promise<TriggerOrder> => {
+  return callApi(() =>
+    axios.delete(
+      `${process.env.FTX_API_ENDPOINT}/conditional_orders/${orderId}`,
+      {
+        headers: generateAuthApiHeaders(
+          `/conditional_orders/${orderId}`,
+          'DELETE',
+          authConfig,
+        ),
+      },
+    ),
   );
 };

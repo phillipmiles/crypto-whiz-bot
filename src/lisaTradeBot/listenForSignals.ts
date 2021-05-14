@@ -1,5 +1,4 @@
 import db from '../db/firebase/db';
-import { signInWithEmailAndPassword } from '../db/firebase/api/auth';
 import { Signal } from '../signals/signal';
 import { toMilliseconds } from '../utils/time';
 import config from './config';
@@ -25,7 +24,7 @@ const enterSpotTradeOnFTX = async (
   entryPrice: number,
   side: SideType,
 ) => {
-  const marketData = await getMarket(ftxAuthConfig, marketId);
+  const marketData = await getMarket(marketId);
 
   // Does market exist on exchange.
   if (!marketData) throw new Error("Market doesn't exist.");
@@ -67,6 +66,8 @@ const setupTradeWithLisaMainStrategyOnFtx = async (
   await tradeRef.update({
     xId: 'ftx',
     xEntryId: entryOrder.id,
+    marketId: marketId,
+    side: 'buy',
   });
 
   const stopLossOrder = await placeTriggerOrder(ftxAuthConfig, {
@@ -148,6 +149,9 @@ const createTradeFromSignal = async (signal: any) => {
     xEntryId: '',
     xStopLossId: '',
     xTargetIds: [],
+    marketId: '',
+    side: '',
+    remainingSize: 0,
     error: false,
     errorMessage: '',
     didCleanup: false,
@@ -177,14 +181,6 @@ const createTradeFromSignal = async (signal: any) => {
 };
 
 const listenForSignals = async (): Promise<void> => {
-  // XXX TODO: Do I need to manually reauthenticate after a while????
-  if (process.env.FIREBASE_DB_LOGIN && process.env.FIREBASE_DB_PASSWORD) {
-    await signInWithEmailAndPassword(
-      process.env.FIREBASE_DB_LOGIN,
-      process.env.FIREBASE_DB_PASSWORD,
-    );
-  }
-
   db.collection('fake-signals')
     // .where('state', '==', 'CA')
     .onSnapshot((snapshot) => {
