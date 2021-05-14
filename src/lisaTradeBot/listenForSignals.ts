@@ -117,8 +117,16 @@ const createTradeWithLisaMainStrategy = async (signal: any, tradeRef: any) => {
     throw new Error(`Trade signal ${signal.id} is too old.`);
 
   // Try to create trade in relavent exchange.
-  if (signal.exchange === 'binance') {
-    // trade.xId = 'binance';
+  if (signal.exchanges && signal.exchanges.length > 0) {
+    if (signal.exchanges.find((exchange: string) => exchange === 'ftx')) {
+      await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef);
+    } else if (
+      signal.exchanges.find((exchange: string) => exchange === 'binance')
+    ) {
+      throw new Error(`Binance support not yet added.`);
+    } else {
+      throw new Error(`Could not find supported exchange.`);
+    }
   } else {
     await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef);
   }
