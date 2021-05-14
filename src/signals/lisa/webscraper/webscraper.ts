@@ -15,10 +15,44 @@ interface ArticleScrap {
   content: string;
 }
 
-const parseForTargets = (string: string): number[] | undefined => {
+const parseForScalp = (str: string): boolean => {
+  const scalpLineRegex = /SCALP/g;
+  const scalpLineMatches = str.match(scalpLineRegex);
+
+  if (scalpLineMatches && scalpLineMatches.length > 0) return true;
+
+  return false;
+};
+
+const parseForHighRisk = (str: string): boolean => {
+  const riskLineRegex = /((HIGH|HIGHER|MORE)\W+RISK|\WRISKY)\W/g;
+  const riskLineMatches = str.match(riskLineRegex);
+
+  if (riskLineMatches && riskLineMatches.length > 0) return true;
+
+  return false;
+};
+
+const parseForExchanges = (str: string): string[] | undefined => {
+  const exchangeLineRegex = /\w+\s+for\s+this\s+signal\W/g;
+  const exchangeLineMatches = str.match(exchangeLineRegex);
+  const exchanges: string[] = [];
+
+  if (!exchangeLineMatches || exchangeLineMatches.length === 0) return;
+
+  exchangeLineMatches.forEach((line) => {
+    const split = line.split(' ');
+
+    if (split[0]) exchanges.push(split[0].toLowerCase());
+  });
+
+  return exchanges;
+};
+
+const parseForTargets = (str: string): number[] | undefined => {
   const targetsLineRegex = /TARGET\s+\d\s*((–|-)\s*)?\$?\s*(\d+)(.(\d+))?/g;
 
-  const lineMatches = string.match(targetsLineRegex);
+  const lineMatches = str.match(targetsLineRegex);
   if (!lineMatches || lineMatches.length === 0) return;
 
   const targets: number[] = [];
@@ -136,6 +170,16 @@ export const parseLisaScrapForSignalData = (
 
     if (!targetsAreValid) return;
 
+    const exchanges = parseForExchanges(content);
+
+    const isRisky = parseForHighRisk(content);
+    const isScalpTrade = parseForScalp(content);
+
+    // XXX Don't bother dealing with trades with the term scalp in them for the
+    // time being. Can change this later but I'll likily have to change parseForCoin's
+    // regex to include 'BTC Scalp' or 'BTC Scalp trade'.
+    if (isScalpTrade) return;
+
     const author = 'LisaNEdwards';
 
     const signal = {
@@ -150,6 +194,8 @@ export const parseLisaScrapForSignalData = (
       entryPrice: buyzone,
       stopLossPrice: stopLoss,
       targets: targets,
+      isRisky: isRisky,
+      exchanges: exchanges,
     };
     signals.push(signal);
   });

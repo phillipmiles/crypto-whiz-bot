@@ -51,7 +51,20 @@ const manageTrades = async (debug: boolean) => {
   // Manager need to check for any trades with state 'waiting-for-entry'
   // that the market hasn't deviated too far from buy order OR that
   // not too much time hasn't passed by weeks.
+  //
+  // If trade has flag error: true then manager should handle cleanup. Once cleanup
+  // is complete - set state to 'closed' and leave error flag on as true.
+  //
+  // XXXXXXX
+  // Manager should look out for trades that say 'initialising' but have a timestamp that
+  // is older then 5 minutes. Something went wrong initialising ????????
   // XXXXXX// XXXXXX
+  // Need to manage stoploss movement after new targets are hit.
+  // xXXXXXX
+  // Need to close trades that have hit stoploss - remove remaining take profit orders
+  // and make trade status as closed
+  // XXXXXXX
+  // Need to mark trades that have been filled as 'filled' from 'waiting-for-entry'
   // XXXXXX// XXXXXX// XXXXXX// XXXXXX// XXXXXX// XXXXXX
   // const poll = true;
   // while (poll) {
