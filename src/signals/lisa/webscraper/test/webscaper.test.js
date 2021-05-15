@@ -165,4 +165,42 @@ describe('webscraper', () => {
       }),
     );
   });
+  test('Scrap lisa signals #4', async () => {
+    const scrapedArticles = await scrapSite(
+      `file:${path.join(__dirname, 'site4.html')}`,
+    );
+    const articles = parseLisaScrapForSignalData(scrapedArticles);
+
+    articles[0].timestamp = undefined;
+    articles[1].timestamp = undefined;
+    expect(articles.length).toBe(2);
+    expect(JSON.stringify(articles[0])).toBe(
+      JSON.stringify({
+        id: 'LisaNEdwards-BTC-1620914400000',
+        coin: 'BTC',
+        author: 'LisaNEdwards',
+        side: 'buy',
+        // timestamp: 1620482400000,
+        entryPrice: { low: 48337, high: 49713 },
+        stopLossPrice: 47227,
+        targets: [51107, 53043, 54686],
+        isRisky: false,
+        exchanges: ['kucoin', 'huobi', 'binance'],
+      }),
+    );
+    expect(JSON.stringify(articles[1])).toBe(
+      JSON.stringify({
+        id: 'LisaNEdwards-LTC-1620914400000',
+        coin: 'LTC',
+        author: 'LisaNEdwards',
+        side: 'buy',
+        // timestamp: 1620482400000,
+        entryPrice: { low: 306, high: 315 },
+        stopLossPrice: 291,
+        targets: [349, 389, 443],
+        isRisky: false,
+        exchanges: ['kucoin', 'huobi', 'binance'],
+      }),
+    );
+  });
 });

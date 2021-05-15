@@ -15,6 +15,10 @@ interface ArticleScrap {
   content: string;
 }
 
+const removeComma = (str: string): string => {
+  return str.replace(/,/g, '');
+};
+
 const parseForScalp = (str: string): boolean => {
   const scalpLineRegex = /SCALP/g;
   const scalpLineMatches = str.match(scalpLineRegex);
@@ -60,8 +64,13 @@ const parseForTargets = (str: string): number[] | undefined => {
   lineMatches.forEach((line) => {
     const targetString = line.match(floatRegex);
     if (!targetString || targetString.length === -1) return;
+
     // Use index 1 not 0 as we want to skip the target number and get to the price.
-    targets.push(parseFloat(targetString[1]));
+    if (targetString[1].indexOf(',') >= 0) {
+      targets.push(parseFloat(removeComma(targetString[1])));
+    } else {
+      targets.push(parseFloat(targetString[1]));
+    }
   });
 
   if (targets.length < 1) return;
@@ -92,8 +101,21 @@ const parseForBuyZone = (string: string) => {
 
   if (!buyzone1Price || !buyzone2Price) return;
 
-  const buyzone1Float = parseFloat(buyzone1Price[0]);
-  const buyzone2Float = parseFloat(buyzone2Price[0]);
+  let buyzone1Float;
+  let buyzone2Float;
+
+  // Remove comma if one exists before converting to a float.
+  if (buyzone1Price[0].indexOf(',') >= 0) {
+    buyzone1Float = parseFloat(removeComma(buyzone1Price[0]));
+  } else {
+    buyzone1Float = parseFloat(buyzone1Price[0]);
+  }
+
+  if (buyzone2Price[0].indexOf(',') >= 0) {
+    buyzone2Float = parseFloat(removeComma(buyzone2Price[0]));
+  } else {
+    buyzone2Float = parseFloat(buyzone2Price[0]);
+  }
 
   return {
     low: buyzone1Float > buyzone2Float ? buyzone2Float : buyzone1Float,
@@ -119,7 +141,12 @@ const parseForStopLoss = (str: string): number | undefined => {
   const stopLossStartIndex = lineMatch[0].indexOf('$');
   const stopLoss = lineMatch[0].substring(stopLossStartIndex + 1);
 
-  return parseFloat(stopLoss);
+  // Remove comma if one exists before converting to a float.
+  if (stopLoss.indexOf(',') >= 0) {
+    return parseFloat(removeComma(stopLoss));
+  } else {
+    return parseFloat(stopLoss);
+  }
 };
 
 const defineSignalTimestamp = (date: string, time: string): number => {
