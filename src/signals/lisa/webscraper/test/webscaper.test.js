@@ -165,6 +165,7 @@ describe('webscraper', () => {
       }),
     );
   });
+  // This test checks for numbers containing commas to denote thousands. Eg 1,000.
   test('Scrap lisa signals #4', async () => {
     const scrapedArticles = await scrapSite(
       `file:${path.join(__dirname, 'site4.html')}`,
