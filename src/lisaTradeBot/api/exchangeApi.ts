@@ -66,7 +66,7 @@ export interface Order {
   future?: string;
 }
 
-interface NewTriggerOrder {
+export interface NewTriggerOrder {
   market: string;
   side: SideType;
   size: number;
@@ -82,7 +82,7 @@ interface NewTriggerOrder {
   trailValue?: number; //negative for "sell"; positive for "buy"
 }
 
-interface TriggerOrder {
+export interface TriggerOrder {
   createdAt: string;
   id: string;
   market: string;
@@ -97,6 +97,17 @@ interface TriggerOrder {
   reduceOnly: boolean;
   retryUntilFilled: boolean; // Whether or not to keep re-triggering until filled
   future?: string;
+}
+
+export interface ModifyTriggerOrder {
+  size: number;
+
+  // For stop loss and take profit orders
+  triggerPrice?: number;
+  orderPrice?: number; // optional; order type is limit if this is specified; otherwise market
+
+  // For trailing orders
+  trailValue?: number; //negative for "sell"; positive for "buy"
 }
 
 // const ftxAuthConfig: ftxAuth.AuthConfig = {
@@ -196,6 +207,29 @@ export const placeTriggerOrder = async (
   } else {
     throw new Error(
       `Exchange ${exchangeId} not supported. Failed to place trigger order.`,
+    );
+  }
+};
+
+export const modifyTriggerOrder = async (
+  exchangeId: string,
+  accountId: AccountId,
+  triggerOrderId: string,
+  payload: ModifyTriggerOrder,
+): Promise<TriggerOrder> => {
+  if (exchangeId === 'ftx') {
+    return ftx.modifyTriggerOrder(
+      getFtxAuthConfig(accountId),
+      triggerOrderId,
+      payload,
+    );
+  } else if (exchangeId === 'binance') {
+    throw new Error(
+      `Binance is not yet supported. Failed to modify trigger order ${triggerOrderId}.`,
+    );
+  } else {
+    throw new Error(
+      `Exchange ${exchangeId} not supported. Failed to modify trigger order ${triggerOrderId}.`,
     );
   }
 };

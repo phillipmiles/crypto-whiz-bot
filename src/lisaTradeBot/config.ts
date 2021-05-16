@@ -1,6 +1,8 @@
 export type AccountId = 'LisaNEdwards' | 'lucas';
 
 const config = {
+  TRADES_COLLECTION: 'trades',
+  SIGNALS_COLLECTION: 'fake-signals',
   accounts: {
     LisaNEdwards: {
       FTX_SUBACCOUNT: process.env.FTX_LISA_BOT_SUBACCOUNT,

@@ -45,66 +45,30 @@ const enterSpotTradeOnFTX = async (
 
 const setupTradeWithLisaMainStrategyOnFtx = async (
   signal: any,
-  tradeRef: any,
+  tradeRef: firebase.firestore.DocumentReference,
 ) => {
-  const accountId = tradeRef.data().accountId;
+  const accountId = signal.author;
   const marketId = `${signal.coin}/USD`;
 
   const entryOrder = await enterSpotTradeOnFTX(
     accountId,
     marketId,
     signal.entryPrice.high,
-    'buy',
+    signal.side,
   );
 
   await tradeRef.update({
     xId: 'ftx',
     xEntryId: entryOrder.id,
     marketId: marketId,
-    side: 'buy',
-  });
-
-  const stopLossOrder = await placeTriggerOrder('ftx', accountId, {
-    market: marketId,
-    side: 'sell',
-    size: entryOrder.size,
-    type: 'stop',
-    triggerPrice: signal.stopLossPrice,
-    retryUntilFilled: true,
-  });
-
-  await tradeRef.update({
-    xStopLossId: stopLossOrder.id,
-  });
-
-  const targetOrderIds = [];
-
-  try {
-    for (const target of signal.targets) {
-      const targetOrder = await placeTriggerOrder('ftx', accountId, {
-        market: marketId,
-        side: 'sell',
-        size: entryOrder.size,
-        type: 'takeProfit',
-        triggerPrice: target,
-        retryUntilFilled: true,
-      });
-
-      targetOrderIds.push(targetOrder.id);
-    }
-  } catch (error) {
-    await tradeRef.update({
-      xTargetIds: firebase.firestore.FieldValue.arrayUnion(...targetOrderIds),
-    });
-    throw error;
-  }
-
-  await tradeRef.update({
-    xTargetIds: firebase.firestore.FieldValue.arrayUnion(...targetOrderIds),
+    accountId: accountId,
   });
 };
 
-const createTradeWithLisaMainStrategy = async (signal: any, tradeRef: any) => {
+const createTradeWithLisaMainStrategy = async (
+  signal: any,
+  tradeRef: firebase.firestore.DocumentReference,
+) => {
   // Don't enter risky trades
   if (signal.isRisky) throw new Error('Trade is too risky.');
   // Don't enter trade if signal is more then 30 minutes old.
@@ -112,15 +76,18 @@ const createTradeWithLisaMainStrategy = async (signal: any, tradeRef: any) => {
     throw new Error(`Trade signal ${signal.id} is too old.`);
 
   // Try to create trade in relavent exchange.
+  // XXXX TODO: For now just default to using ftx. This will all need a rewrite
+  // anyway when I make it use the generalised exchanges api.
   if (signal.exchanges && signal.exchanges.length > 0) {
     if (signal.exchanges.find((exchange: string) => exchange === 'ftx')) {
       await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef);
-    } else if (
-      signal.exchanges.find((exchange: string) => exchange === 'binance')
-    ) {
-      throw new Error(`Binance support not yet added.`);
+      // } else if (
+      //   signal.exchanges.find((exchange: string) => exchange === 'binance')
+      // ) {
+      //   throw new Error(`Binance support not yet added.`);
     } else {
-      throw new Error(`Could not find supported exchange.`);
+      await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef);
+      // throw new Error(`Could not find supported exchange.`);
     }
   } else {
     await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef);
@@ -139,21 +106,21 @@ const createTradeFromSignal = async (signal: any) => {
   const tradeRef = await db.collection('trades').add({
     signalId: signal.id,
     status: 'initialising',
-    accountId: signal.author,
+    accountId: '',
     xId: '',
     xEntryId: '',
     xStopLossId: '',
     xTargetIds: [],
     marketId: '',
-    side: '',
+    side: signal.side,
     remainingSize: 0,
     error: false,
     errorMessage: '',
     didCleanup: false,
   });
 
-  // If we didn't record a new trade to DB then abort!
-  if (!tradeRef.get()) throw new Error('Failed to init new trade to DB.');
+  // // If we didn't record a new trade to DB then abort!
+  // if (!tradeRef.get()) throw new Error('Failed to init new trade to DB.');
 
   try {
     if (signal.strategy === 'take-profit-at-targets') {
@@ -171,12 +138,12 @@ const createTradeFromSignal = async (signal: any) => {
   }
 
   await tradeRef.update({
-    status: 'waiting-for-entry',
+    status: 'unfilled',
   });
 };
 
 const listenForSignals = async (): Promise<void> => {
-  db.collection('fake-signals')
+  db.collection(config.SIGNALS_COLLECTION)
     // .where('state', '==', 'CA')
     .onSnapshot((snapshot) => {
       snapshot.docChanges().forEach(async (change) => {

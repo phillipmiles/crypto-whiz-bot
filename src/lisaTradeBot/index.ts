@@ -13,7 +13,12 @@ import {
   cancelTriggerOrder,
   getOrder,
   placeOrder,
+  placeTriggerOrder,
+  modifyTriggerOrder,
 } from './api/exchangeApi';
+import config from './config';
+import manageUnfilledTrades from './manageUnfilledTrades';
+import manageFilledTrades from './manageFilledTrades';
 
 const log = (message: any) => {
   console.log(message);
@@ -118,30 +123,6 @@ const manageInitTrades = async (
   console.log('Mange init');
 };
 
-const manageWaitingForEntryTrades = async (
-  tradesRef: firebase.firestore.CollectionReference,
-): Promise<void> => {
-  const pendingTradesSnapshot = await tradesRef
-    .where('status', '==', 'waiting-for-entry')
-    .get();
-
-  pendingTradesSnapshot.forEach((doc) => {
-    const pendingTrade = doc.data();
-    console.log(pendingTrade);
-    // XXX If market price has shifted to far away - cancel
-    // XXX If too much time has passed - cancel
-
-    // XXX Trade that gets filled or even partially filled need to update status to 'filled' i think ?
-    // and also need to update remainingSize value on trade to whatever has been filled.
-  });
-};
-
-const manageFilledTrades = async (
-  tradesRef: firebase.firestore.CollectionReference,
-): Promise<void> => {
-  console.log('Manage filled');
-};
-
 const manageErrorTrades = async (
   tradesRef: firebase.firestore.CollectionReference,
 ): Promise<void> => {
@@ -163,7 +144,7 @@ const manageErrorTrades = async (
 };
 
 const manageOpenTrades = async (debug: boolean): Promise<void> => {
-  // Manager need to check for any trades with state 'waiting-for-entry'
+  // Manager need to check for any trades with state 'unfilled'
   // that the market hasn't deviated too far from buy order OR that
   // not too much time hasn't passed by weeks.
   //
@@ -179,7 +160,7 @@ const manageOpenTrades = async (debug: boolean): Promise<void> => {
   // Need to close trades that have hit stoploss - remove remaining take profit orders
   // and make trade status as closed
   // XXXXXXX
-  // Need to mark trades that have been filled as 'filled' from 'waiting-for-entry'
+  // Need to mark trades that have been filled as 'filled' from 'unfilled'
   // XXXXXX// XXXXXX// XXXXXX// XXXXXX// XXXXXX// XXXXXX
   const MANAGER_LOOP_INTERVAL = toMilliseconds(1, 'minutes');
   const poll = true;
@@ -188,7 +169,15 @@ const manageOpenTrades = async (debug: boolean): Promise<void> => {
     try {
       const tradesRef = await db.collection('trades');
 
-      // manageWaitingForEntryTrades(tradesRef);
+      // XXXX TODO - Sync exchanges orders with recorded trade orders
+      // Remove any open orders from exchanges that can't be found
+      // in any of the open trades.
+      // May somewhere seperate, also think about how to sync the other
+      // way if order ids are recorded on trades but they don't exist in
+      // exchanges.
+
+      manageUnfilledTrades(tradesRef);
+      manageFilledTrades(tradesRef);
       manageErrorTrades(tradesRef);
     } catch (error) {
       console.log(error);

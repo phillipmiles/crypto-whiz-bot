@@ -140,6 +140,17 @@ interface TriggerOrder {
   future?: string;
 }
 
+interface ModifyTriggerOrder {
+  size: number;
+
+  // For stop loss and take profit orders
+  triggerPrice?: number;
+  orderPrice?: number; // optional; order type is limit if this is specified; otherwise market
+
+  // For trailing orders
+  trailValue?: number; //negative for "sell"; positive for "buy"
+}
+
 export const getAccount = async (authConfig: AuthConfig): Promise<Account> => {
   return callApi(() =>
     axios.get(`${process.env.FTX_API_ENDPOINT}/account`, {
@@ -201,6 +212,28 @@ export const placeTriggerOrder = async (
         payload,
       ),
     }),
+  );
+};
+
+// Please note that the order ID of the modified order will be different from that of the original order.
+export const modifyTriggerOrder = async (
+  authConfig: AuthConfig,
+  triggerOrderId: string,
+  payload: ModifyTriggerOrder,
+): Promise<TriggerOrder> => {
+  return callApi(() =>
+    axios.post(
+      `${process.env.FTX_API_ENDPOINT}/conditional_orders/${triggerOrderId}/modify`,
+      payload,
+      {
+        headers: generateAuthApiHeaders(
+          `/conditional_orders/${triggerOrderId}/modify`,
+          'POST',
+          authConfig,
+          payload,
+        ),
+      },
+    ),
   );
 };
 

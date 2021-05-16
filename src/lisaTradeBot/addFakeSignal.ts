@@ -39,6 +39,7 @@ const addFakeSignal = async () => {
       stopLossPrice: 0.354,
       targets: [0.443, 0.494, 0.625, 0.801],
       timestamp: 1620733536055,
+      exchanges: ['binance', 'ftx'],
     },
   ];
 
