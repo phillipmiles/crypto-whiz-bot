@@ -1,48 +1,40 @@
 import db from '../db/firebase/db';
-import { Signal } from '../signals/signal';
 import { toMilliseconds } from '../utils/time';
-import config from './config';
+import config, { AccountId } from './config';
+import { SideType } from './api/ftx/api';
+import firebase from 'firebase';
 import {
-  getAccount,
-  getBalances,
-  getMarket,
   placeOrder,
   placeTriggerOrder,
-  SideType,
-} from './api/ftx/api';
-import { AuthConfig } from './api/ftx/auth';
-import firebase from 'firebase';
-
-const ftxAuthConfig: AuthConfig = {
-  subaccount: config.FTX_SUBACCOUNT ? config.FTX_SUBACCOUNT : '',
-  key: config.FTX_API_KEY ? config.FTX_API_KEY : '',
-  secret: config.FTX_API_SECRET ? config.FTX_API_SECRET : '',
-};
+  getMarket,
+  getBalances,
+} from './api/exchangeApi';
 
 const enterSpotTradeOnFTX = async (
+  accountId: AccountId,
   marketId: string,
   entryPrice: number,
   side: SideType,
 ) => {
-  const marketData = await getMarket(marketId);
+  const marketData = await getMarket('ftx', marketId);
 
   // Does market exist on exchange.
   if (!marketData) throw new Error("Market doesn't exist.");
 
-  const balances = await getBalances(ftxAuthConfig);
+  const balances = await getBalances('ftx', accountId);
   const usdBalance = balances.find((balance) => balance.coin === 'USD');
 
   // Abort if balance doesn't contain the required capital.
-  if (!usdBalance || usdBalance.free < config.TRADE_CAPITAL)
+  if (!usdBalance || usdBalance.free < config.accounts[accountId].TRADE_CAPITAL)
     throw new Error('Not enough captial in account.');
 
-  const volume = config.TRADE_CAPITAL / entryPrice;
+  const volume = config.accounts[accountId].TRADE_CAPITAL / entryPrice;
 
   // Abort if the purchase volume doesn't exceed the markets minimum.
   if (!volume || volume <= marketData.sizeIncrement)
     throw new Error("Volume doesn't exceed market minimum.");
 
-  return await placeOrder(ftxAuthConfig, {
+  return await placeOrder('ftx', accountId, {
     market: marketId,
     side: side,
     price: entryPrice,
@@ -55,9 +47,11 @@ const setupTradeWithLisaMainStrategyOnFtx = async (
   signal: any,
   tradeRef: any,
 ) => {
+  const accountId = tradeRef.data().accountId;
   const marketId = `${signal.coin}/USD`;
 
   const entryOrder = await enterSpotTradeOnFTX(
+    accountId,
     marketId,
     signal.entryPrice.high,
     'buy',
@@ -70,7 +64,7 @@ const setupTradeWithLisaMainStrategyOnFtx = async (
     side: 'buy',
   });
 
-  const stopLossOrder = await placeTriggerOrder(ftxAuthConfig, {
+  const stopLossOrder = await placeTriggerOrder('ftx', accountId, {
     market: marketId,
     side: 'sell',
     size: entryOrder.size,
@@ -87,7 +81,7 @@ const setupTradeWithLisaMainStrategyOnFtx = async (
 
   try {
     for (const target of signal.targets) {
-      const targetOrder = await placeTriggerOrder(ftxAuthConfig, {
+      const targetOrder = await placeTriggerOrder('ftx', accountId, {
         market: marketId,
         side: 'sell',
         size: entryOrder.size,
@@ -145,6 +139,7 @@ const createTradeFromSignal = async (signal: any) => {
   const tradeRef = await db.collection('trades').add({
     signalId: signal.id,
     status: 'initialising',
+    accountId: signal.author,
     xId: '',
     xEntryId: '',
     xStopLossId: '',

@@ -55,6 +55,7 @@ const log = (message: any) => {
 
 const cleanUpTrade = async (tradeRef: any): Promise<any> => {
   const {
+    accountId,
     xId,
     xEntryId,
     xStopLossId,
@@ -67,11 +68,11 @@ const cleanUpTrade = async (tradeRef: any): Promise<any> => {
   if (xId) {
     // Cleanup entry order
     if (xEntryId) {
-      const order = await getOrder(xId, xEntryId);
+      const order = await getOrder(xId, accountId, xEntryId);
 
       // Cancel the order if it is still open.
       if (order.status === 'open' || order.status === 'new') {
-        await cancelOrder(xId, xEntryId);
+        await cancelOrder(xId, accountId, xEntryId);
       }
     }
 
@@ -79,7 +80,7 @@ const cleanUpTrade = async (tradeRef: any): Promise<any> => {
       // If order not filled - cancel it.
       // Cleanup targets orders
       for (const targetId of xTargetIds) {
-        await cancelTriggerOrder(xId, targetId);
+        await cancelTriggerOrder(xId, accountId, targetId);
       }
     }
 
@@ -88,7 +89,7 @@ const cleanUpTrade = async (tradeRef: any): Promise<any> => {
       // const stopLossOrder = await getOrder(xId, xEntryId);
       // If order not filled - cancel it.
       // Cleanup stoploss order
-      await cancelTriggerOrder(xId, xStopLossId);
+      await cancelTriggerOrder(xId, accountId, xStopLossId);
     }
 
     // Sell off whatever is left on trade at market price.
@@ -97,7 +98,7 @@ const cleanUpTrade = async (tradeRef: any): Promise<any> => {
       // so we can't actually sell more then we own. But I suppose
       // it's possible another signal has also bought into this market
       // so it's good to be getting this right now anyway.
-      await placeOrder(xId, {
+      await placeOrder(xId, accountId, {
         market: marketId,
         side: side === 'buy' ? 'sell' : 'buy',
         price: null,
