@@ -1,12 +1,12 @@
-import db from '../db/firebase/db';
+import db from '../../db/firebase/db';
 import firebase from 'firebase';
 import {
   getOrder,
   placeTriggerOrder,
   modifyTriggerOrder,
   TriggerOrder,
-} from './api/exchangeApi';
-import config from './config';
+} from '../api/exchangeApi';
+import config from '../config';
 
 // This is a particular trading strategy where at each target 20% of the REMAINING
 // trade size is sold. Remaining NOT total trade size.
@@ -143,10 +143,8 @@ const manageUnfilledTrade = async (
   // Check if trade has been filled.
   if (entryOrder.status === 'closed' && entryOrder.remainingSize === 0) {
     await handleFilledTrade(trade, tradeRef, signal, entryOrder);
-  }
-
-  // If order is still unfilled check if buy order should be canceled.
-  if (entryOrder.remainingSize > 0) {
+  } else if (entryOrder.remainingSize > 0) {
+    // If order is still unfilled check if buy order should be canceled.
     // Check time diff.
     // Check price change.
     // forceFillTrade()
@@ -164,13 +162,9 @@ const manageUnfilledTrades = async (
     .where('status', '==', 'unfilled')
     .get();
 
+  // XXX Does it matter that the loop isn't awaited???
   pendingTradesSnapshot.forEach(async (doc) => {
     await manageUnfilledTrade(doc);
-    // XXX If market price has shifted to far away - cancel
-    // XXX If too much time has passed - cancel
-
-    // XXX Trade that gets filled or even partially filled need to update status to 'filled' i think ?
-    // and also need to update remainingSize value on trade to whatever has been filled.
   });
 };
 

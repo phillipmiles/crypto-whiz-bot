@@ -6,7 +6,7 @@ import db from '../db/firebase/db';
 // import puppeteer from 'puppeteer';
 // import db from '../../db/firebase/db';
 // import { Signal } from '../signal';
-import listenForSignals from './listenForSignals';
+import listenForSignals from './listener/listenForSignals';
 import firebase from 'firebase';
 import {
   cancelOrder,
@@ -17,8 +17,8 @@ import {
   modifyTriggerOrder,
 } from './api/exchangeApi';
 import config from './config';
-import manageUnfilledTrades from './manageUnfilledTrades';
-import manageFilledTrades from './manageFilledTrades';
+import manageUnfilledTrades from './manager/manageUnfilledTrades';
+import manageFilledTrades from './manager/manageFilledTrades';
 
 const log = (message: any) => {
   console.log(message);
