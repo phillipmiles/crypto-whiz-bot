@@ -52,6 +52,7 @@ export type TriggerOrderStatus = 'open' | 'cancelled' | 'triggered';
 // new (accepted but not processed yet), open, or closed (filled or cancelled)
 export type OrderStatus = 'new' | 'open' | 'closed';
 export type SideType = 'buy' | 'sell';
+export type Liquidity = 'taker' | 'maker';
 
 export interface Market {
   name: string; // e.g. "BTC/USD" for spot, "BTC-PERP" for futures
@@ -151,6 +152,34 @@ interface ModifyTriggerOrder {
   trailValue?: number; //negative for "sell"; positive for "buy"
 }
 
+interface Fill {
+  fee: number;
+  feeCurrency: string;
+  feeRate: number;
+  future: string;
+  id: number;
+  liquidity: Liquidity;
+  market: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  orderId: number;
+  tradeId?: number; //null for trades before 2019-02-19 10:00:00
+  price: number;
+  side: SideType;
+  size: number;
+  time: string;
+  type: string; // ie 'order'
+}
+
+interface GetFillsParams {
+  market?: string; // limit by market
+  orderId?: string; // limit by orderId
+  limit?: number;
+  start_time?: number; // seconds since 1970-01-01
+  end_time?: number; // seconds since 1970-01-01
+  order?: string; //default is descending, supply 'asc' to receive fills in ascending order of time
+}
+
 export const getAccount = async (authConfig: AuthConfig): Promise<Account> => {
   return callApi(() =>
     axios.get(`${process.env.FTX_API_ENDPOINT}/account`, {
@@ -182,6 +211,18 @@ export const getOrder = async (
   return callApi(() =>
     axios.get(`${process.env.FTX_API_ENDPOINT}/orders/${orderId}`, {
       headers: generateAuthApiHeaders(`/orders/${orderId}`, 'GET', authConfig),
+    }),
+  );
+};
+
+export const getFills = async (
+  authConfig: AuthConfig,
+  params: GetFillsParams,
+): Promise<Fill[]> => {
+  return callApi(() =>
+    axios.get(`${process.env.FTX_API_ENDPOINT}/fills}`, {
+      headers: generateAuthApiHeaders(`/fills`, 'GET', authConfig),
+      params: params,
     }),
   );
 };

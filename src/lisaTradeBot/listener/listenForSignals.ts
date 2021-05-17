@@ -103,6 +103,7 @@ const initNewTradeFromSignal = async (
     xEntryId: '',
     xStopLossId: '',
     xTargetIds: [],
+    xFills: [],
     marketId: '',
     side: signal.side,
     remainingSize: 0,

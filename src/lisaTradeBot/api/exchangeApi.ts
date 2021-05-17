@@ -8,6 +8,7 @@ export type OrderType = 'limit' | 'market';
 export type TriggerOrderType = 'stop' | 'trailingStop' | 'takeProfit';
 export type TriggerOrderStatus = 'open' | 'cancelled' | 'triggered';
 export type MarketType = 'future' | 'spot';
+export type Liquidity = 'taker' | 'maker';
 
 interface Balance {
   coin: string;
@@ -110,6 +111,34 @@ export interface ModifyTriggerOrder {
   trailValue?: number; //negative for "sell"; positive for "buy"
 }
 
+interface Fill {
+  fee: number;
+  feeCurrency: string;
+  feeRate: number;
+  future: string;
+  id: number;
+  liquidity: Liquidity;
+  market: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  orderId: number;
+  tradeId?: number; //null for trades before 2019-02-19 10:00:00
+  price: number;
+  side: Side;
+  size: number;
+  time: string;
+  type: string; // ie 'order'
+}
+
+interface GetFillsParams {
+  market?: string; // limit by market
+  orderId?: string; // limit by orderId
+  limit?: number;
+  start_time?: number; // seconds since 1970-01-01
+  end_time?: number; // seconds since 1970-01-01
+  order?: string; //default is descending, supply 'asc' to receive fills in ascending order of time
+}
+
 // const ftxAuthConfig: ftxAuth.AuthConfig = {
 //   subaccount: config.FTX_SUBACCOUNT ? config.FTX_SUBACCOUNT : '',
 //   key: config.FTX_API_KEY ? config.FTX_API_KEY : '',
@@ -173,6 +202,22 @@ export const getOrder = async (
   } else {
     throw new Error(
       `Exchange ${exchangeId} not supported. Failed to get order ${orderId}.`,
+    );
+  }
+};
+
+export const getFills = async (
+  exchangeId: string,
+  accountId: AccountId,
+  params: GetFillsParams,
+): Promise<Fill[]> => {
+  if (exchangeId === 'ftx') {
+    return ftx.getFills(getFtxAuthConfig(accountId), params);
+  } else if (exchangeId === 'binance') {
+    throw new Error(`Binance is not yet supported. Failed to get fills.`);
+  } else {
+    throw new Error(
+      `Exchange ${exchangeId} not supported. Failed to get fills.`,
     );
   }
 };
