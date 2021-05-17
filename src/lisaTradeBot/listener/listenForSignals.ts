@@ -1,14 +1,13 @@
 import db from '../../db/firebase/db';
 import { toMilliseconds } from '../../utils/time';
+import {
+  percentageChange,
+  hasValueChangedByPercentage,
+} from '../../utils/math';
 import config, { AccountId } from '../config';
 import { SideType } from '../api/ftx/api';
 import firebase from 'firebase';
-import {
-  placeOrder,
-  placeTriggerOrder,
-  getMarket,
-  getBalances,
-} from '../api/exchangeApi';
+import { placeOrder, getMarket, getBalances } from '../api/exchangeApi';
 
 const enterSpotTradeOnFTX = async (
   accountId: AccountId,
@@ -47,21 +46,49 @@ const setupTradeWithLisaMainStrategyOnFtx = async (
   signal: any,
   tradeRef: firebase.firestore.DocumentReference,
   accountId: AccountId,
-  marketId: string,
 ) => {
+  const exchangeId = 'ftx';
+  const market = await getMarket(exchangeId, signal.marketId);
+
+  const accountIdConfig = config.accounts[accountId];
+
+  // Calculate a price to cancel entry bid order.
+  const cancelPrice =
+    market.price +
+    market.price *
+      accountIdConfig.CANCEL_ENTRY_BID_PRICE_CHANGE *
+      (signal.side === 'buy' ? 1 : -1);
+
+  const entryPrice = (signal.entryPrice.high + signal.entryPrice.low) / 2;
+
+  // Validates that market price isn't significantly far from the signals
+  // entry price. Likily something isn't right in the signal.
+  if (
+    hasValueChangedByPercentage(
+      market.price,
+      entryPrice,
+      accountIdConfig.MAXIMUM_MARKET_PRICE_DIFFERENCE_TO_ENTRY_PRICE,
+    )
+  ) {
+    throw new Error(
+      'Trade entry price is significantly far from current market price.',
+    );
+  }
+
   const entryOrder = await enterSpotTradeOnFTX(
     accountId,
-    marketId,
-    signal.entryPrice.high,
+    signal.marketId,
+    entryPrice,
     signal.side,
   );
 
   await tradeRef.update({
     xId: 'ftx',
     xEntryId: entryOrder.id,
-    marketId: marketId,
+    marketId: signal.marketId,
     accountId: accountId,
     status: 'unfilled',
+    cancelPrice: cancelPrice,
   });
 };
 
@@ -88,7 +115,6 @@ const initNewTradeFromSignal = async (
 
 const createTradeWithLisaMainStrategy = async (signal: any) => {
   const accountId = signal.author;
-  const marketId = `${signal.coin}/USD`;
 
   // Don't enter risky trades
   if (signal.isRisky) throw new Error('Trade is too risky.');
@@ -101,7 +127,7 @@ const createTradeWithLisaMainStrategy = async (signal: any) => {
     .collection('trades')
     .where('status', '!=', closed)
     .where('accountId', '==', accountId)
-    .where('marketId', '==', marketId)
+    .where('marketId', '==', signal.marketId)
     .get();
 
   // Don't enter trade if one already exists in market. Program doesn't
@@ -117,32 +143,17 @@ const createTradeWithLisaMainStrategy = async (signal: any) => {
   try {
     if (signal.exchanges && signal.exchanges.length > 0) {
       if (signal.exchanges.find((exchange: string) => exchange === 'ftx')) {
-        await setupTradeWithLisaMainStrategyOnFtx(
-          signal,
-          tradeRef,
-          accountId,
-          marketId,
-        );
+        await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef, accountId);
         // } else if (
         //   signal.exchanges.find((exchange: string) => exchange === 'binance')
         // ) {
         //   throw new Error(`Binance support not yet added.`);
       } else {
-        await setupTradeWithLisaMainStrategyOnFtx(
-          signal,
-          tradeRef,
-          accountId,
-          marketId,
-        );
+        await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef, accountId);
         // throw new Error(`Could not find supported exchange.`);
       }
     } else {
-      await setupTradeWithLisaMainStrategyOnFtx(
-        signal,
-        tradeRef,
-        accountId,
-        marketId,
-      );
+      await setupTradeWithLisaMainStrategyOnFtx(signal, tradeRef, accountId);
     }
   } catch (error) {
     console.log(`ERROR: ${error.message}`);

@@ -2,7 +2,7 @@ import * as ftx from './ftx/api';
 import * as ftxAuth from './ftx/auth';
 import config, { AccountId } from '../config';
 
-export type SideType = 'buy' | 'sell';
+export type Side = 'buy' | 'sell';
 export type OrderStatus = 'new' | 'open' | 'closed';
 export type OrderType = 'limit' | 'market';
 export type TriggerOrderType = 'stop' | 'trailingStop' | 'takeProfit';
@@ -38,7 +38,7 @@ export interface Market {
 }
 export interface NewOrder {
   market: string;
-  side: SideType;
+  side: Side;
   price: number | null; // Send null for market orders.
   type: OrderType;
   size: number;
@@ -52,7 +52,7 @@ export interface Order {
   createdAt: string;
   id: string;
   market: string;
-  side: SideType;
+  side: Side;
   price: number;
   filledSize: number;
   remainingSize: number;
@@ -68,7 +68,7 @@ export interface Order {
 
 export interface NewTriggerOrder {
   market: string;
-  side: SideType;
+  side: Side;
   size: number;
   type: TriggerOrderType; // default is 'stop'
   reduceOnly?: boolean; // default is false - Spot trades cannot have reduceOnly set to true.
@@ -87,7 +87,7 @@ export interface TriggerOrder {
   id: string;
   market: string;
   triggerPrice: number;
-  side: SideType;
+  side: Side;
   size: number;
   status: TriggerOrderStatus;
   type: TriggerOrderType;

@@ -36,6 +36,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-STORJ-1620396000000',
         coin: 'STORJ',
+        marketId: 'STORJ/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620626919270,
@@ -50,6 +51,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-BADGER-1620396000000',
         coin: 'BADGER',
+        marketId: 'BADGER/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620396000000,
@@ -64,6 +66,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-HBAR-1620309600000',
         coin: 'HBAR',
+        marketId: 'HBAR/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620309600000,
@@ -86,6 +89,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-THETA-1620482400000',
         coin: 'THETA',
+        marketId: 'THETA/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -112,6 +116,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-LTC-1620914400000',
         coin: 'LTC',
+        marketId: 'LTC/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -126,6 +131,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-FIL-1620914400000',
         coin: 'FIL',
+        marketId: 'FIL/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -140,6 +146,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-CEL-1620914400000',
         coin: 'CEL',
+        marketId: 'CEL/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -154,6 +161,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-ICP-1620828000000',
         coin: 'ICP',
+        marketId: 'ICP/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -179,6 +187,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-BTC-1620914400000',
         coin: 'BTC',
+        marketId: 'BTC/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,
@@ -193,6 +202,7 @@ describe('webscraper', () => {
       JSON.stringify({
         id: 'LisaNEdwards-LTC-1620914400000',
         coin: 'LTC',
+        marketId: 'LTC/USD',
         author: 'LisaNEdwards',
         side: 'buy',
         // timestamp: 1620482400000,

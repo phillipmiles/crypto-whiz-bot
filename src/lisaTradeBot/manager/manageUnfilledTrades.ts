@@ -1,12 +1,15 @@
 import db from '../../db/firebase/db';
 import firebase from 'firebase';
 import {
+  Side,
   getOrder,
   placeTriggerOrder,
   modifyTriggerOrder,
   TriggerOrder,
+  getMarket,
 } from '../api/exchangeApi';
 import config from '../config';
+import { hasValueChangedByPercentage } from '../../utils/math';
 
 // This is a particular trading strategy where at each target 20% of the REMAINING
 // trade size is sold. Remaining NOT total trade size.
@@ -144,15 +147,23 @@ const manageUnfilledTrade = async (
   if (entryOrder.status === 'closed' && entryOrder.remainingSize === 0) {
     await handleFilledTrade(trade, tradeRef, signal, entryOrder);
   } else if (entryOrder.remainingSize > 0) {
-    // If order is still unfilled check if buy order should be canceled.
-    // Check time diff.
-    // Check price change.
-    // forceFillTrade()
-  }
+    const market = await getMarket(trade.xId, trade.marketId);
 
-  // Does remaining fill size match whats in DB.
-  // If not update DB with fills and update remainingFillSize.
-  // Add or update stoploss to match filled size.
+    // If order is still unfilled check if buy order should be canceled.
+    if (
+      trade.side === 'buy'
+        ? market.price > trade.cancelPrice
+        : market.price < trade.cancelPrice
+    ) {
+      // XXX Cancel trade
+      // OR
+      // forceFillTrade()
+    } else {
+      // Does remaining fill size match whats in DB.
+      // If not update DB with fills and update remainingFillSize.
+      // Add or update stoploss to match filled size.
+    }
+  }
 };
 
 const manageUnfilledTrades = async (

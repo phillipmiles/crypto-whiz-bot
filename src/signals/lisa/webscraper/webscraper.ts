@@ -1,4 +1,5 @@
 import { Page } from 'puppeteer';
+import { getMarket } from '../../../lisaTradeBot/api/ftx/api';
 import {
   convertRelativeTimeStringToMilliseconds,
   toMilliseconds,
@@ -208,6 +209,8 @@ export const parseLisaScrapForSignalData = (
     if (isScalpTrade) return;
 
     const author = 'LisaNEdwards';
+    // Hardcoding lisa's markets as coin/usd ones.
+    const marketId = `${coin}/USD`;
 
     const signal = {
       // ID makes assumption that an author will never create multiple signals
@@ -215,6 +218,7 @@ export const parseLisaScrapForSignalData = (
       // result is that the latest signal isn't recorded. Big whoop.
       id: `${author}-${coin}-${datestamp}`,
       coin: coin,
+      marketId: marketId,
       author: author,
       side: side,
       timestamp: timestamp,
@@ -310,10 +314,11 @@ export const scrapLisaForSignals = async (page: Page): Promise<Signal[]> => {
   // Prevent signals found older then 1 hour ago from being returned.
   // We can't generate an accurate time of signal down to the minute which
   // makes the timestamp too unreliable for using.
-  const filteredSignals = signals.filter(
+  const recentSignals = signals.filter(
     (signal) =>
       signal.timestamp > new Date().getTime() - toMilliseconds(1, 'hours'),
   );
 
-  return filteredSignals;
+  // XXX TODO Validate recent signal's buy zone is actually close to what is recorded in signal?
+  return recentSignals;
 };
