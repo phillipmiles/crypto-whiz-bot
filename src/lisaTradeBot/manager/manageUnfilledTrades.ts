@@ -1,6 +1,7 @@
 import db from '../../db/firebase/db';
 import firebase from 'firebase';
 import {
+  cancelOrder,
   getFills,
   getOrder,
   placeTriggerOrder,
@@ -53,8 +54,8 @@ const setStopLossForTrade = async (trade: any, price: number, size: number) => {
 
 const setTargetsForTrade = async (
   trade: any,
-  size: number,
   targetPrices: number[],
+  size: number,
 ): Promise<TriggerOrder[]> => {
   const triggerOrders = [];
 
@@ -89,41 +90,34 @@ const handleFilledTrade = async (
   trade: any,
   tradeRef: firebase.firestore.DocumentReference,
   signal: any,
-  entryOrder: any,
+  fillSize: number,
 ) => {
   // Grab trade fills for easier trade performance monitoring and tax reporting.
   const fills = await getFills(trade.xId, trade.accountId, {
     orderId: trade.xEntryId,
   });
 
-  // Grab fill details ????
-  // I think adding the fills is just for monitoring trade
-  // performance easier further down the line, rather then as part of the
-  // management. Also reporting.
-  // Update DB fills ????
-
+  // Set stoploss trigger order
   const stopLossOrder = await setStopLossForTrade(
     trade,
     signal.stopLossPrice,
-    entryOrder.size,
+    fillSize,
   );
 
   // Set targets
   const triggerOrders = await setTargetsForTrade(
     trade,
-    entryOrder.size,
     signal.targets,
+    fillSize,
   );
 
   // Update DB
   await tradeRef.update({
     status: 'filled',
-    remainingSize: entryOrder.size,
+    remainingSize: fillSize,
     xStopLossId: stopLossOrder.id,
-    xTargetIds: firebase.firestore.FieldValue.arrayUnion(
-      ...triggerOrders.map((triggerOrder) => triggerOrder.id),
-    ),
-    xFills: firebase.firestore.FieldValue.arrayUnion(...fills),
+    xTargetIds: triggerOrders.map((triggerOrder) => triggerOrder.id),
+    xFills: fills,
   });
 };
 
@@ -135,22 +129,37 @@ const handlePartiallyFilledTrade = async (
 ) => {
   const market = await getMarket(trade.xId, trade.marketId);
 
-  // If order is still unfilled check if buy order should be canceled.
+  // If order is still unfilled check if market price has crossed
+  // trade cancel price.
   if (
     trade.side === 'buy'
       ? market.price > trade.cancelPrice
       : market.price < trade.cancelPrice
   ) {
+    // Cancel trade
+    await cancelOrder(trade.xId, trade.accountId, trade.xEntryId);
     // Check if order has been partially filled.
     if (entryOrder.remainingSize > 0 && entryOrder.filledSize > 0) {
-      // forceFillTrade()
+      await handleFilledTrade(trade, tradeRef, signal, entryOrder.filledSize);
     } else {
-      // XXX Cancel trade
+      // If no fills on order then just close trade.
+      await tradeRef.update({
+        status: 'closed',
+      });
     }
   } else {
-    // Does remaining fill size match whats in DB.
-    // If not update DB with fills and update remainingFillSize.
-    // Add or update stoploss to match filled size.
+    // Order is still valid so just check that DB has got up-to-date fills
+    // recorded, update if they're not matching.
+    if (entryOrder.remainingSize !== trade.remainingSize) {
+      const fills = await getFills(trade.xId, trade.accountId, {
+        orderId: trade.xEntryId,
+      });
+
+      await tradeRef.update({
+        remainingSize: entryOrder.remainingSize,
+        xFills: fills,
+      });
+    }
   }
 };
 
@@ -179,7 +188,7 @@ const manageUnfilledTrade = async (
 
   // Check if trade has been filled.
   if (entryOrder.status === 'closed' && entryOrder.remainingSize === 0) {
-    await handleFilledTrade(trade, tradeRef, signal, entryOrder);
+    await handleFilledTrade(trade, tradeRef, signal, entryOrder.size);
   } else if (entryOrder.remainingSize > 0) {
     await handlePartiallyFilledTrade(trade, tradeRef, signal, entryOrder);
   }
